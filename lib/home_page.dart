@@ -771,7 +771,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             userRole: 'classrep',
           ),
           const EventsPage(),
-          const EmptyClassroomsPage(),
+          EmptyClassroomsPage(
+            userBranch: selectedDept,
+            userSection: selectedSection,
+          ),
           ProfilePage(
             userName: userName,
             userEmail: userEmail,

@@ -102,17 +102,7 @@ class _EventsPageState extends State<EventsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Events'),
-        elevation: 2,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadEvents,
-            tooltip: 'Refresh',
-          ),
-        ],
-      ),
+      // Removed AppBar to remove "Events" title and reload button
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null

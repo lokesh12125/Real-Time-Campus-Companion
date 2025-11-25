@@ -5,6 +5,7 @@ import 'student_timetable_page.dart';
 import 'emptyclassrooms_page.dart'; 
 import 'api_service.dart'; 
 import 'timetable_model.dart'; 
+import 'profile_page.dart'; // ✅ Imported ProfilePage
 
 class TeacherHomePage extends StatelessWidget {
   final String universityName;
@@ -70,7 +71,8 @@ class _TeachersHomeState extends State<TeachersHome>
   late String teacherEmail;
   String department = 'CSE';
   String cabin = 'Block A - 305';
-  String profileImage = 'https://i.pravatar.cc/150?img=5';
+  // Default image fallback
+  String profileImage = 'https://i.pravatar.cc/150?img=5'; 
   String? _userId; 
 
   // Local state
@@ -189,8 +191,13 @@ class _TeachersHomeState extends State<TeachersHome>
                 if (freshData['cabinRoom'] != null) {
                   cabin = freshData['cabinRoom'];
                 }
+                // ✅ Fetch profile image from DB
                 if (freshData['profile'] != null && freshData['profile']['url'] != null) {
                   profileImage = freshData['profile']['url'];
+                }
+                // Sync name if changed elsewhere
+                if (freshData['name'] != null) {
+                  teacherName = freshData['name'];
                 }
               });
             }
@@ -203,6 +210,9 @@ class _TeachersHomeState extends State<TeachersHome>
                 if (userProfile['cabinRoom'] != null) cabin = userProfile['cabinRoom'];
                 if (userProfile.containsKey('availability')) {
                    _isAvailable = userProfile['availability'] == true;
+                }
+                if (userProfile['profile'] != null && userProfile['profile']['url'] != null) {
+                   profileImage = userProfile['profile']['url'];
                 }
               });
             }
@@ -323,6 +333,18 @@ class _TeachersHomeState extends State<TeachersHome>
     );
   }
 
+  // ✅ LOGOUT HANDLER
+  void _handleLogout() {
+    Navigator.pushAndRemoveUntil(
+      context, 
+      MaterialPageRoute(builder: (_) => LoginPage(
+        isDark: _localIsDark, 
+        onToggleTheme: widget.onToggleTheme
+      )), 
+      (r) => false
+    );
+  }
+
   @override
   void didUpdateWidget(covariant TeachersHome oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -362,13 +384,21 @@ class _TeachersHomeState extends State<TeachersHome>
           IconButton(icon: const Icon(Icons.menu, color: Colors.white, size: 26), onPressed: () => _scaffoldKey.currentState?.openDrawer()),
           const SizedBox(width: 8),
           const Expanded(child: Center(child: Text('Teacher Dashboard', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white, fontSize: 18)))),
+          
+          // ✅ FIXED THEME TOGGLE ICON LOGIC
           IconButton(
-            icon: const Icon(Icons.brightness_medium, color: Colors.white, size: 26),
+            // If Dark Mode is ON (_localIsDark == true) -> Show Sun (to switch to Light)
+            // If Light Mode is ON (_localIsDark == false) -> Show Moon (to switch to Dark)
+            icon: Icon(
+              _localIsDark ? Icons.wb_sunny_rounded : Icons.nightlight_round, 
+              color: Colors.white, 
+              size: 26
+            ),
             onPressed: () {
               setState(() => _localIsDark = !_localIsDark);
               widget.onToggleTheme(_localIsDark);
             },
-            tooltip: 'Toggle theme',
+            tooltip: _localIsDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
           ),
         ],
       ),
@@ -432,10 +462,7 @@ class _TeachersHomeState extends State<TeachersHome>
             child: InkWell(
               onTap: () {
                 Navigator.of(context).pop();
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => LoginPage(isDark: _localIsDark, onToggleTheme: widget.onToggleTheme)),
-                  (route) => false,
-                );
+                _handleLogout();
               },
               borderRadius: BorderRadius.circular(10),
               child: Container(
@@ -471,8 +498,40 @@ class _TeachersHomeState extends State<TeachersHome>
         children: [
           _buildHome(),
           const StudentTimetablePage(userRole: 'teacher'),
-          const EmptyClassroomsPage(),
-          _teacherProfile(context),
+          EmptyClassroomsPage(userBranch: department, userSection: 'A'),
+          
+          // ✅ REPLACED LOCAL PROFILE WITH IMPORTED ProfilePage
+          ProfilePage(
+            userName: teacherName,
+            userEmail: teacherEmail,
+            dept: department,
+            section: cabin,
+            isDark: _localIsDark,
+            onToggleTheme: (value) {
+              setState(() => _localIsDark = value);
+              widget.onToggleTheme(value);
+            },
+            initialPhotoUrl: profileImage, // ✅ Passed the profile image here
+            
+            // Logic to update name locally + DB
+            onUpdateName: (newName) async {
+              setState(() => teacherName = newName);
+              if (_userId != null) {
+                try {
+                  await ApiService.updateUserById(id: _userId!, name: newName);
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to update name: $e'), backgroundColor: Colors.red),
+                  );
+                }
+              }
+            },
+            // Logic to update email locally
+            onUpdateEmail: (newEmail) => setState(() => teacherEmail = newEmail),
+            
+            onLogout: _handleLogout,
+            showAdminActions: true, // Enable editing for teacher
+          ),
         ],
       ),
       bottomNavigationBar: Container(
@@ -519,7 +578,13 @@ class _TeachersHomeState extends State<TeachersHome>
               bottom: false,
               child: Row(
                 children: [
-                  CircleAvatar(radius: 32, backgroundColor: Colors.white24, child: const Icon(Icons.school, size: 32, color: Colors.white)),
+                  // Use profileImage here as well for consistency on home screen
+                  CircleAvatar(
+                    radius: 32, 
+                    backgroundColor: Colors.white24, 
+                    backgroundImage: NetworkImage(profileImage),
+                    child: profileImage.isEmpty ? const Icon(Icons.school, size: 32, color: Colors.white) : null
+                  ),
                   const SizedBox(width: 16),
                   Flexible(
                     child: Column(
@@ -648,84 +713,6 @@ class _TeachersHomeState extends State<TeachersHome>
             );
           }),
         ],
-      ),
-    );
-  }
-
-  // --- PROFILE WIDGETS (Simplified for brevity) ---
-  Widget _teacherProfile(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return ListView(
-      padding: EdgeInsets.zero, physics: const BouncingScrollPhysics(),
-      children: [
-        const SizedBox(height: 8),
-        _buildCompactHeader(),
-        Padding(padding: const EdgeInsets.fromLTRB(20, 8, 20, 14), child: Row(children: [Container(width: 4, height: 22, decoration: BoxDecoration(gradient: LinearGradient(colors: [cs.primary, cs.secondary]), borderRadius: BorderRadius.circular(2))), const SizedBox(width: 10), Text('Account Settings', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: cs.onSurface))])),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Column(children: [
-            _buildCompactCard(icon: Icons.edit, title: 'Edit Name', subtitle: 'Update display name', onTap: () => {}, index: 0, gradientColors: const [Color(0xFF667EEA), Color(0xFF764BA2)]),
-            _buildThemeToggle(3),
-            _buildCompactCard(icon: Icons.logout_rounded, title: 'Log Out', subtitle: 'Sign out', onTap: () => Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => LoginPage(isDark: _localIsDark, onToggleTheme: widget.onToggleTheme)), (r) => false), index: 4, gradientColors: const [Color(0xFFFA709A), Color(0xFFFEE140)]),
-          ]),
-        ),
-        const SizedBox(height: 24),
-      ],
-    );
-  }
-
-  Widget _buildCompactHeader() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return FadeTransition(
-      opacity: _headerFade,
-      child: ScaleTransition(
-        scale: _headerScale,
-        child: Container(
-          margin: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            gradient: LinearGradient(colors: isDark ? [const Color(0xFF1A237E), const Color(0xFF283593)] : [const Color(0xFF0D6EFD), const Color(0xFF20C997)]),
-            boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.4), blurRadius: 20, offset: const Offset(0, 10))],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                CircleAvatar(radius: 35, backgroundImage: NetworkImage(profileImage)),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(teacherName, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    Text('$department - $cabin', style: const TextStyle(color: Colors.white, fontSize: 12)),
-                    const SizedBox(height: 4),
-                    Text(teacherEmail, style: const TextStyle(color: Colors.white70, fontSize: 12)),
-                  ]),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCompactCard({required IconData icon, required String title, required String subtitle, required VoidCallback onTap, required int index, List<Color>? gradientColors}) {
-    final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: InkWell(onTap: onTap, borderRadius: BorderRadius.circular(20), child: Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: cs.surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: cs.outlineVariant.withOpacity(0.3)), boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 12, offset: const Offset(0, 6))]), child: Row(children: [Icon(icon, color: cs.primary), const SizedBox(width: 14), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: cs.onSurface)), Text(subtitle, style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant))])), Icon(Icons.chevron_right, color: cs.onSurfaceVariant)]))),
-    );
-  }
-
-  Widget _buildThemeToggle(int index) {
-    final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: cs.surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: cs.outlineVariant.withOpacity(0.3)), boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 12, offset: const Offset(0, 6))]),
-        child: Row(children: [Icon(_localIsDark ? Icons.dark_mode : Icons.light_mode, color: cs.primary), const SizedBox(width: 14), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Theme', style: TextStyle(fontWeight: FontWeight.bold, color: cs.onSurface)), Text(_localIsDark ? 'Dark' : 'Light', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant))])), Switch.adaptive(value: _localIsDark, onChanged: (v) { setState(() => _localIsDark = v); widget.onToggleTheme(v); }, activeColor: cs.primary)]),
       ),
     );
   }

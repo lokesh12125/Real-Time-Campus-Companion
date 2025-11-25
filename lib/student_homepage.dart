@@ -7,7 +7,7 @@ import 'find_teacher_page.dart';
 import 'find_classroom_page.dart';
 import 'student_timetable_page.dart';
 import 'main.dart';
-import 'profile_page.dart';
+import 'profile_page.dart'; // ✅ Imported ProfilePage
 import 'emptyclassrooms_page_student.dart';
 import 'Events_page.dart';
 
@@ -21,6 +21,7 @@ class StudentHomePage extends StatefulWidget {
   final String? section;
   final String? semester;
   final String? profile;
+  final String? userId; // ✅ Added userId to support profile updates
 
   const StudentHomePage({
     super.key,
@@ -33,6 +34,7 @@ class StudentHomePage extends StatefulWidget {
     this.section,
     this.semester,
     this.profile,
+    this.userId,
   });
 
   @override
@@ -49,6 +51,10 @@ class _StudentHomePageState extends State<StudentHomePage>
   late String userName;
   late String userEmail;
   late bool _isDark;
+  
+  // Profile state
+  late String _profileImage;
+  String? _userId; // ✅ Local state for User ID
 
   Timetable? _fullTimetable;
   bool _isLoadingTimetable = true;
@@ -63,6 +69,32 @@ class _StudentHomePageState extends State<StudentHomePage>
     '09:00', '09:50', '10:50', '11:40', '12:30', '13:20', '14:10', '15:10', '16:00'
   ];
 
+  // --- COLORS & GRADIENTS (Matches Teacher/Staff) ---
+  List<Color> get _palette => [
+    const Color(0xFF0D6EFD), 
+    const Color(0xFF20C997), 
+    const Color(0xFFFFA927), 
+    const Color(0xFF8A63D2), 
+    const Color(0xFFEF476F), 
+  ];
+
+  Color _paletteColor(int index, {double opacity = 1.0}) {
+    final base = _palette[index % _palette.length];
+    return base.withOpacity(opacity);
+  }
+
+  LinearGradient get _headerGradient => _isDark
+      ? const LinearGradient(
+    colors: [Color(0xFF1F1F1F), Color(0xFF121212)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  )
+      : const LinearGradient(
+    colors: [Color(0xFF0D6EFD), Color(0xFF20C997)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
   @override
   void initState() {
     super.initState();
@@ -73,8 +105,47 @@ class _StudentHomePageState extends State<StudentHomePage>
     userName = widget.userName ?? 'Student Name';
     userEmail = widget.userEmail ?? 'student@university.edu';
     _isDark = widget.isDark;
+    _profileImage = widget.profile ?? 'https://i.pravatar.cc/150?img=3';
+    
+    // Initialize User ID from widget first
+    _userId = widget.userId;
 
+    _loadUserData(); // ✅ Load user data (ID check)
     _fetchTimetable();
+  }
+
+  // ✅ New method to robustly get User ID
+  Future<void> _loadUserData() async {
+    if (_userId == null) {
+      try {
+        final userProfile = await ApiService.readUserProfile();
+        if (userProfile != null) {
+          final id = userProfile['_id'] ?? userProfile['id'];
+          if (mounted && id != null) {
+            setState(() {
+              _userId = id;
+            });
+          }
+        }
+      } catch (e) {
+        print("Error loading user ID: $e");
+      }
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant StudentHomePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isDark != widget.isDark) {
+      setState(() => _isDark = widget.isDark);
+    }
+    if (oldWidget.profile != widget.profile && widget.profile != null) {
+      setState(() => _profileImage = widget.profile!);
+    }
+    // Update userId if parent passes a new one
+    if (oldWidget.userId != widget.userId && widget.userId != null) {
+      setState(() => _userId = widget.userId);
+    }
   }
 
   Future<void> _fetchTimetable() async {
@@ -167,6 +238,18 @@ class _StudentHomePageState extends State<StudentHomePage>
 
   void _updateUserName(String name) => setState(() => userName = name);
   void _updateUserEmail(String email) => setState(() => userEmail = email);
+
+  // ✅ LOGOUT HANDLER
+  void _handleLogout() {
+    Navigator.pushAndRemoveUntil(
+      context, 
+      MaterialPageRoute(builder: (_) => LoginPage(
+        isDark: _isDark, 
+        onToggleTheme: widget.onToggleTheme ?? (v){}
+      )), 
+      (r) => false
+    );
+  }
 
   Widget _homePage(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -522,15 +605,18 @@ class _StudentHomePageState extends State<StudentHomePage>
       appBar: AppBar(
         title: Text(
           widget.universityName,
-          style: const TextStyle(fontWeight: FontWeight.w600),
+          style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white),
         ),
+        // ✅ Use same header gradient as teacher homepage
+        flexibleSpace: Container(decoration: BoxDecoration(gradient: _headerGradient)),
         leading: Builder(
           builder: (ctx) => IconButton(
-            icon: const Icon(Icons.menu_rounded),
+            icon: const Icon(Icons.menu_rounded, color: Colors.white),
             onPressed: () => Scaffold.of(ctx).openDrawer(),
           ),
         ),
         actions: [
+          // ✅ Updated Theme toggle to switch icon based on mode
           IconButton(
             key: ValueKey('theme_toggle_$_isDark'),
             icon: AnimatedSwitcher(
@@ -541,6 +627,7 @@ class _StudentHomePageState extends State<StudentHomePage>
               child: Icon(
                 _isDark ? Icons.wb_sunny_rounded : Icons.nightlight_round,
                 key: ValueKey(_isDark),
+                color: Colors.white,
               ),
             ),
             onPressed: () {
@@ -556,181 +643,119 @@ class _StudentHomePageState extends State<StudentHomePage>
           const SizedBox(width: 8),
         ],
         elevation: 0,
+        backgroundColor: Colors.transparent,
       ),
 
       drawer: Drawer(
-        child: Column(
+        // ✅ Match drawer color to theme state
+        backgroundColor: _isDark ? Colors.grey.shade900 : Colors.white,
+        child: ListView(
+          padding: EdgeInsets.zero,
           children: [
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: isDark
-                      ? [const Color(0xFF1A237E), const Color(0xFF283593)]
-                      : [const Color(0xFFA4123F), const Color(0xFFD81B60)],
-                ),
-              ),
-              child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Row(
-                    children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 3),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.3),
-                              blurRadius: 10,
-                              offset: const Offset(0, 5),
-                            ),
-                          ],
-                        ),
-                        child: const CircleAvatar(
-                          radius: 35,
-                          backgroundImage: NetworkImage(
-                            "https://i.pravatar.cc/150?img=3",
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              userName,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              userEmail,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 13,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                '$selectedDept - $selectedSection',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(vertical: 8),
+            DrawerHeader(
+              // ✅ Same gradient for drawer header
+              decoration: BoxDecoration(gradient: _headerGradient),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildDrawerItem(
-                    icon: Icons.home_rounded,
-                    title: "Home",
-                    onTap: () {
-                      Navigator.pop(context);
-                      _goToPage(0);
-                    },
+                  // ✅ Use _profileImage here
+                  CircleAvatar(
+                    radius: 28,
+                    backgroundImage: NetworkImage(_profileImage),
+                    backgroundColor: Colors.white24,
+                    child: _profileImage.isEmpty ? const Icon(Icons.person, size: 30, color: Colors.white) : null,
                   ),
-                  _buildDrawerItem(
-                    icon: Icons.person_search_rounded,
-                    title: 'Find Teacher (Cabin/Room)',
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const FindTeacherPage(),
-                        ),
-                      );
-                    },
+                  const SizedBox(height: 8),
+                  Text(
+                    userName,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  _buildDrawerItem(
-                    icon: Icons.search_rounded,
-                    title: "Find Friend Class Room",
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const FindClassRoomPage(),
-                        ),
-                      );
-                    },
-                  ),
-                  _buildDrawerItem(
-                    icon: Icons.schedule_rounded,
-                    title: "Timetable",
-                    onTap: () {
-                      Navigator.pop(context);
-                      _goToPage(1);
-                    },
-                  ),
-                  _buildDrawerItem(
-                    icon: Icons.event_rounded,
-                    title: "Events",
-                    onTap: () {
-                      Navigator.pop(context);
-                      _goToPage(2);
-                    },
-                  ),
-                  _buildDrawerItem(
-                    icon: Icons.settings_rounded,
-                    title: "Settings",
-                    onTap: () {
-                      Navigator.pop(context);
-                      _goToPage(4);
-                    },
-                  ),
-                  const Divider(height: 20),
-                  _buildDrawerItem(
-                    icon: Icons.logout_rounded,
-                    title: "Logout",
-                    isDestructive: true,
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.pushAndRemoveUntil(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => LoginPage(
-                            isDark: _isDark,
-                            onToggleTheme: widget.onToggleTheme ?? (bool v) {},
-                          ),
-                        ),
-                            (Route<dynamic> route) => false,
-                      );
-                    },
+                  const SizedBox(height: 4),
+                  Text(
+                    userEmail,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 13,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
+            ),
+            _buildDrawerItem(
+              icon: Icons.home_rounded,
+              title: "Home",
+              onTap: () {
+                Navigator.pop(context);
+                _goToPage(0);
+              },
+            ),
+            _buildDrawerItem(
+              icon: Icons.person_search_rounded,
+              title: 'Find Teacher (Cabin/Room)',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const FindTeacherPage(),
+                  ),
+                );
+              },
+            ),
+            _buildDrawerItem(
+              icon: Icons.search_rounded,
+              title: "Find Friend Class Room",
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const FindClassRoomPage(),
+                  ),
+                );
+              },
+            ),
+            _buildDrawerItem(
+              icon: Icons.schedule_rounded,
+              title: "Timetable",
+              onTap: () {
+                Navigator.pop(context);
+                _goToPage(1);
+              },
+            ),
+            _buildDrawerItem(
+              icon: Icons.event_rounded,
+              title: "Events",
+              onTap: () {
+                Navigator.pop(context);
+                _goToPage(2);
+              },
+            ),
+            _buildDrawerItem(
+              icon: Icons.person_outline_rounded,
+              title: "Profile",
+              onTap: () {
+                Navigator.pop(context);
+                _goToPage(4);
+              },
+            ),
+            const Divider(height: 20),
+            _buildDrawerItem(
+              icon: Icons.logout_rounded,
+              title: "Logout",
+              isDestructive: true,
+              onTap: () {
+                Navigator.pop(context);
+                _handleLogout();
+              },
             ),
           ],
         ),
@@ -751,39 +776,58 @@ class _StudentHomePageState extends State<StudentHomePage>
           ),
           const EventsPage(),
           const EmptyClassroomsPage(),
+          // ✅ Updated ProfilePage usage to match Teacher's implementation
           ProfilePage(
             userName: userName,
             userEmail: userEmail,
             dept: selectedDept,
             section: selectedSection,
             isDark: _isDark,
+            userId: _userId, // ✅ Pass the State Variable _userId (not widget.userId)
+            initialPhotoUrl: _profileImage, // ✅ Pass Profile Image
             onToggleTheme: (bool isDark) {
               setState(() => _isDark = isDark);
               if (widget.onToggleTheme != null) {
                 widget.onToggleTheme!(isDark);
               }
             },
-            onUpdateName: _updateUserName,
+            // ✅ Logic to update name in DB using the robust _userId
+            onUpdateName: (newName) async {
+              setState(() => userName = newName);
+              if (_userId != null) {
+                try {
+                  await ApiService.updateUserById(id: _userId!, name: newName);
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to update name: $e'), backgroundColor: Colors.red),
+                  );
+                }
+              } else {
+                 ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Cannot update: User ID not found'), backgroundColor: Colors.orange),
+                  );
+              }
+            },
             onUpdateEmail: _updateUserEmail,
+            onLogout: _handleLogout, // ✅ Proper Logout
+            showAdminActions: false, // Students can't edit other stuff
           ),
         ],
       ),
 
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          boxShadow: [
-            BoxShadow(
-              color: scheme.shadow.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, -2),
-            ),
-          ],
+          // ✅ Matches Teacher/Staff navbar style
+          color: _isDark ? Colors.grey.shade900.withOpacity(0.92) : Colors.white.withOpacity(0.95),
+          borderRadius: const BorderRadius.only(topLeft: Radius.circular(18), topRight: Radius.circular(18)),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, -2))],
         ),
         child: NavigationBar(
           selectedIndex: _index,
           onDestinationSelected: _goToPage,
           elevation: 0,
           height: 65,
+          backgroundColor: Colors.transparent, // Let container color show
           labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
           destinations: const [
             NavigationDestination(
@@ -823,23 +867,51 @@ class _StudentHomePageState extends State<StudentHomePage>
     required VoidCallback onTap,
     bool isDestructive = false,
   }) {
-    final scheme = Theme.of(context).colorScheme;
-
-    return ListTile(
-      leading: Icon(
-        icon,
-        color: isDestructive ? scheme.error : scheme.onSurfaceVariant,
-      ),
-      title: Text(
-        title,
-        style: TextStyle(
-          color: isDestructive ? scheme.error : scheme.onSurface,
-          fontWeight: FontWeight.w500,
+    // Matches Teacher drawer item style
+    final color = isDestructive ? Colors.redAccent : (_isDark ? Colors.white : Colors.black87);
+    final iconColor = isDestructive ? Colors.redAccent : (_isDark ? Colors.white : Colors.black54);
+    
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 6),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          decoration: BoxDecoration(
+            // Subtle background for logout or regular items if needed
+            color: isDestructive 
+                ? (_isDark ? Colors.red.withOpacity(0.08) : Colors.red.withOpacity(0.06))
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: ListTile(
+            leading: Container(
+              width: 6, 
+              height: double.infinity, 
+              decoration: BoxDecoration(
+                color: isDestructive ? Colors.redAccent : _paletteColor(0), // Use palette color for indicator
+                borderRadius: BorderRadius.circular(6)
+              )
+            ),
+            title: Text(
+              title,
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            trailing: Container(
+               width: 30, height: 30,
+               decoration: BoxDecoration(
+                 color: _isDark ? const Color(0xFF1F1F1F) : Colors.grey.shade200, 
+                 borderRadius: BorderRadius.circular(8)
+               ),
+               child: Icon(icon, color: iconColor, size: 18),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          ),
         ),
       ),
-      onTap: onTap,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
     );
   }
 }

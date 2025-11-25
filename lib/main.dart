@@ -161,7 +161,7 @@ class _LoginPageState extends State<LoginPage> {
       final section = user['section'] ?? 'N/A';
       final semester = user['semester'];
       
-      // 3. Extract User ID (Critical for Teacher Update)
+      // 3. Extract User ID (Critical for Updates)
       final userId = user['id'] ?? user['_id'];
 
       // 4. Extract Profile Image
@@ -176,16 +176,18 @@ class _LoginPageState extends State<LoginPage> {
           universityName: "Amrita Vishwa Vidyapeetham — Teacher",
           userName: userName,
           userEmail: userEmail,
-          userId: userId, // ✅ Passed ID here!
+          userId: userId, 
           isDark: widget.isDark,
           onToggleTheme: widget.onToggleTheme,
         );
       } else if (role == 'staff') {
-        targetPage = StaffHomePage(
+        targetPage = StaffHome(
           universityName: "Amrita Vishwa Vidyapeetham — Staff",
           userName: userName,
           userEmail: userEmail,
-          profile: profile,
+          // ✅ Added userId and profile here
+          userId: userId, 
+          profilePhotoUrl: profile,
           isDark: widget.isDark,
           onToggleTheme: widget.onToggleTheme,
         );

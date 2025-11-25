@@ -16,6 +16,7 @@ class ProfilePage extends StatefulWidget {
   final ValueChanged<String>? onUpdateName;
   final ValueChanged<String>? onUpdateEmail;
   final String? initialPhotoUrl;
+  final String? userId; // ✅ Added userId here
   final VoidCallback? onChangePhoto;
   final VoidCallback? onChangePassword;
   final VoidCallback? onLogout;
@@ -32,6 +33,7 @@ class ProfilePage extends StatefulWidget {
     this.onUpdateName,
     this.onUpdateEmail,
     this.initialPhotoUrl,
+    this.userId, // ✅ Added to constructor
     this.onChangePhoto,
     this.onChangePassword,
     this.onLogout,
@@ -619,7 +621,10 @@ class _ProfilePageState extends State<ProfilePage>
                               style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 0.5, shadows: [Shadow(blurRadius: 12, color: Colors.black38, offset: Offset(0, 4))]),
                               maxLines: 1, overflow: TextOverflow.ellipsis,
                             ),
-                            const SizedBox(height: 10),
+                            const SizedBox(height: 4), 
+                            
+                            // --- REMOVED DEPARTMENT ROW (As Requested) ---
+                            /*
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                               decoration: BoxDecoration(color: Colors.white.withOpacity(0.25), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white.withOpacity(0.4), width: 1.5)),
@@ -639,9 +644,16 @@ class _ProfilePageState extends State<ProfilePage>
                               ),
                             ),
                             const SizedBox(height: 10),
+                            */
+                            // ---------------------------------------------
+
+                            // Email Container
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                              decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(14)),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2), 
+                                borderRadius: BorderRadius.circular(14)
+                              ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
@@ -809,11 +821,49 @@ class _ProfilePageState extends State<ProfilePage>
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Column(
             children: [
-              _buildCompactCard(icon: Icons.person_rounded, title: 'Edit Name', subtitle: 'Update your display name', onTap: _editName, index: 0, gradientColors: [const Color(0xFF667EEA), const Color(0xFF764BA2)]),
-              _buildCompactCard(icon: Icons.lock_reset_rounded, title: 'Change Password', subtitle: 'Update your account password', onTap: _changePassword, index: 1, gradientColors: [const Color(0xFFF093FB), const Color(0xFFF5576C)]),
+              // 1. Edit Name Card
+              _buildCompactCard(
+                icon: Icons.person_rounded, 
+                title: 'Edit Name', 
+                subtitle: 'Update your display name', 
+                onTap: _editName, 
+                index: 0, 
+                gradientColors: [const Color(0xFF667EEA), const Color(0xFF764BA2)]
+              ),
+              
+              // 2. Change Password Card
+              _buildCompactCard(
+                icon: Icons.lock_reset_rounded, 
+                title: 'Change Password', 
+                subtitle: 'Update your account password', 
+                onTap: _changePassword, 
+                index: 1, 
+                gradientColors: [const Color(0xFFF093FB), const Color(0xFFF5576C)]
+              ),
+              
+              // 3. Theme Toggle Card
               _buildThemeToggle(2),
+              
+              // 4. Logout Card
               if (widget.showAdminActions) ...[
-                _buildCompactCard(icon: Icons.logout_rounded, title: 'Log Out', subtitle: 'Sign out from your account', onTap: widget.onLogout ?? _logoutDialog, index: 3, gradientColors: [const Color(0xFFFA709A), const Color(0xFFFEE140)]),
+                _buildCompactCard(
+                  icon: Icons.logout_rounded, 
+                  title: 'Log Out', 
+                  subtitle: 'Sign out from your account', 
+                  onTap: widget.onLogout ?? _logoutDialog, 
+                  index: 3, 
+                  gradientColors: [const Color(0xFFFA709A), const Color(0xFFFEE140)]
+                ),
+              ] else ...[
+                // Ensure Logout is available for all users (like students) if desired
+                _buildCompactCard(
+                  icon: Icons.logout_rounded, 
+                  title: 'Log Out', 
+                  subtitle: 'Sign out from your account', 
+                  onTap: widget.onLogout ?? _logoutDialog, 
+                  index: 3, 
+                  gradientColors: [const Color(0xFFFA709A), const Color(0xFFFEE140)]
+                ),
               ],
             ],
           ),
