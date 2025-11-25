@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
-import 'package:intl/intl.dart'; // Added for day formatting
+import 'package:intl/intl.dart'; 
 import 'api_service.dart';
 import 'timetable_model.dart';
 import 'find_teacher_page.dart';
@@ -50,7 +50,6 @@ class _StudentHomePageState extends State<StudentHomePage>
   late String userEmail;
   late bool _isDark;
 
-  // Timetable State
   Timetable? _fullTimetable;
   bool _isLoadingTimetable = true;
 
@@ -60,7 +59,6 @@ class _StudentHomePageState extends State<StudentHomePage>
     'https://picsum.photos/1200/600?random=3',
   ];
 
-  // Define slot start times for logic (24h format)
   final List<String> _slotStartTimes = [
     '09:00', '09:50', '10:50', '11:40', '12:30', '13:20', '14:10', '15:10', '16:00'
   ];
@@ -98,23 +96,20 @@ class _StudentHomePageState extends State<StudentHomePage>
     }
   }
 
-  // --- LOGIC TO FIND NEXT CLASS ---
   Map<String, dynamic>? _getNextClassInfo() {
     if (_fullTimetable == null) return null;
 
     final now = DateTime.now();
     final days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 
-    // Helper to convert "HH:mm" to minutes from midnight
     int toMinutes(String time) {
       final p = time.split(':');
       return int.parse(p[0]) * 60 + int.parse(p[1]);
     }
 
     int currentMinutes = now.hour * 60 + now.minute;
-    int todayWeekdayIndex = now.weekday - 1; // Mon=0, Sun=6
+    int todayWeekdayIndex = now.weekday - 1;
 
-    // 1. Check Today (if it's a weekday)
     if (todayWeekdayIndex >= 0 && todayWeekdayIndex < 5) {
       String todayName = days[todayWeekdayIndex];
       final todayData = _fullTimetable!.grid.firstWhere(
@@ -123,7 +118,6 @@ class _StudentHomePageState extends State<StudentHomePage>
       );
 
       for (int i = 0; i < _slotStartTimes.length; i++) {
-        // If slot hasn't started yet
         if (toMinutes(_slotStartTimes[i]) > currentMinutes) {
           if (i < todayData.slots.length) {
             final slot = todayData.slots[i];
@@ -139,9 +133,8 @@ class _StudentHomePageState extends State<StudentHomePage>
       }
     }
 
-    // 2. Check Tomorrow (or Monday if today is Fri/Sat/Sun)
     int nextDayIndex = (todayWeekdayIndex + 1) % 7;
-    if (nextDayIndex > 4) nextDayIndex = 0; // Wrap Sat/Sun to Mon
+    if (nextDayIndex > 4) nextDayIndex = 0;
 
     String nextDayName = days[nextDayIndex];
     final nextDayData = _fullTimetable!.grid.firstWhere(
@@ -149,19 +142,18 @@ class _StudentHomePageState extends State<StudentHomePage>
         orElse: () => TimetableDay(dayName: '', slots: [])
     );
 
-    // Find first class of next day
     for (int i = 0; i < nextDayData.slots.length; i++) {
       final slot = nextDayData.slots[i];
       if (slot.courseCode.isNotEmpty) {
         return {
           'slot': slot,
           'time': _slotStartTimes[i],
-          'day': nextDayName // e.g. "Mon"
+          'day': nextDayName
         };
       }
     }
 
-    return null; // No classes found
+    return null;
   }
 
   void _goToPage(int index) {
@@ -176,7 +168,6 @@ class _StudentHomePageState extends State<StudentHomePage>
   void _updateUserName(String name) => setState(() => userName = name);
   void _updateUserEmail(String email) => setState(() => userEmail = email);
 
-  // --- HOME PAGE WIDGET ---
   Widget _homePage(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -185,7 +176,6 @@ class _StudentHomePageState extends State<StudentHomePage>
       padding: EdgeInsets.zero,
       children: [
         const SizedBox(height: 16),
-        // Carousel
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: ClipRRect(
@@ -226,16 +216,11 @@ class _StudentHomePageState extends State<StudentHomePage>
           ),
         ),
         const SizedBox(height: 20),
-
-        // --- NEXT CLASS WIDGET (REPLACED THE OLD PREVIEW) ---
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: _buildNextClassCard(scheme, isDark),
         ),
-
         const SizedBox(height: 24),
-
-        // Announcements Header
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
@@ -265,8 +250,6 @@ class _StudentHomePageState extends State<StudentHomePage>
           ),
         ),
         const SizedBox(height: 12),
-
-        // Announcement Cards
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Column(
@@ -294,15 +277,16 @@ class _StudentHomePageState extends State<StudentHomePage>
     );
   }
 
-  // --- NEXT CLASS CARD BUILDER ---
   Widget _buildNextClassCard(ColorScheme scheme, bool isDark) {
     if (_isLoadingTimetable) {
-      return const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()));
+      return const Center(
+          child: Padding(
+              padding: EdgeInsets.all(20),
+              child: CircularProgressIndicator()));
     }
 
     final nextClass = _getNextClassInfo();
 
-    // Gradient Selection
     final Gradient bgGradient = isDark
         ? const LinearGradient(colors: [Color(0xFF1A237E), Color(0xFF0D47A1)])
         : const LinearGradient(colors: [Color(0xFF4facfe), Color(0xFF00f2fe)]);
@@ -313,10 +297,19 @@ class _StudentHomePageState extends State<StudentHomePage>
         decoration: BoxDecoration(
           gradient: bgGradient,
           borderRadius: BorderRadius.circular(20),
-          boxShadow: [BoxShadow(color: scheme.shadow.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 4))],
+          boxShadow: [
+            BoxShadow(
+                color: scheme.shadow.withOpacity(0.1),
+                blurRadius: 10,
+                offset: const Offset(0, 4))
+          ],
         ),
         child: const Center(
-          child: Text("No upcoming classes found.", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+          child: Text("No upcoming classes found.",
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600)),
         ),
       );
     }
@@ -325,8 +318,8 @@ class _StudentHomePageState extends State<StudentHomePage>
     final String time = nextClass['time'];
     final String day = nextClass['day'];
 
-    // Room Logic: Prefer newRoom, fallback to permanent room
-    final String displayRoom = (slot.newRoom != null && slot.newRoom!.isNotEmpty)
+    final String displayRoom =
+    (slot.newRoom != null && slot.newRoom!.isNotEmpty)
         ? slot.newRoom!
         : (slot.room.isNotEmpty ? slot.room : "TBA");
 
@@ -336,7 +329,8 @@ class _StudentHomePageState extends State<StudentHomePage>
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: isCancelled
-            ? LinearGradient(colors: [Colors.red.shade400, Colors.red.shade700])
+            ? LinearGradient(
+            colors: [Colors.red.shade400, Colors.red.shade700])
             : bgGradient,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
@@ -361,20 +355,31 @@ class _StudentHomePageState extends State<StudentHomePage>
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.event_available, color: Colors.white, size: 14),
+                    const Icon(Icons.event_available,
+                        color: Colors.white, size: 14),
                     const SizedBox(width: 6),
                     Text(
                       "$day @ $time",
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12),
                     ),
                   ],
                 ),
               ),
               if (isCancelled)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
-                  child: const Text("CANCELLED", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 10)),
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8)),
+                  child: const Text("CANCELLED",
+                      style: TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10)),
                 )
             ],
           ),
@@ -392,26 +397,40 @@ class _StudentHomePageState extends State<StudentHomePage>
           ),
           const SizedBox(height: 4),
           Text(
-            slot.facultyName.isNotEmpty ? slot.facultyName : "Faculty not assigned",
-            style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 14),
+            slot.facultyName.isNotEmpty
+                ? slot.facultyName
+                : "Faculty not assigned",
+            style:
+            TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 14),
           ),
           const SizedBox(height: 16),
           const Divider(color: Colors.white24),
           const SizedBox(height: 8),
           Row(
             children: [
-              Icon(Icons.location_on_rounded, color: Colors.white.withOpacity(0.9), size: 18),
+              Icon(Icons.location_on_rounded,
+                  color: Colors.white.withOpacity(0.9), size: 18),
               const SizedBox(width: 8),
               Text(
                 "Room: $displayRoom",
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15),
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15),
               ),
               if (slot.newRoom != null) ...[
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(color: Colors.orange, borderRadius: BorderRadius.circular(4)),
-                  child: const Text("UPDATED", style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                      color: Colors.orange,
+                      borderRadius: BorderRadius.circular(4)),
+                  child: const Text("UPDATED",
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold)),
                 )
               ]
             ],
@@ -725,7 +744,7 @@ class _StudentHomePageState extends State<StudentHomePage>
 
           StudentTimetablePage(
             embedded: true,
-            initialBranch: selectedDept,    // Student Home already has this info
+            initialBranch: selectedDept,
             initialSemester: selectedSemester,
             initialSection: selectedSection,
             userRole: 'student',

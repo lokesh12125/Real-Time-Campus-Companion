@@ -27,14 +27,34 @@ class _AddUserPageState extends State<AddUserPage> {
   String role = 'student'; // Default role
   DateTime? dob;
   File? _profileFile;
+
+  // Teacher Specific State
+  String cabinRoom = '';
+  // Removed availability state (defaults to true in backend)
+
   bool _isSubmitting = false;
 
   // Dropdown Options
-  final List<String> _semesterOptions = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8'];
+  final List<String> _semesterOptions = [
+    'S1',
+    'S2',
+    'S3',
+    'S4',
+    'S5',
+    'S6',
+    'S7',
+    'S8',
+  ];
   String? _selectedSemester;
 
   // Role Options
-  final List<String> _roleOptions = ['student', 'classrep', 'teacher', 'admin', 'staff'];
+  final List<String> _roleOptions = [
+    'student',
+    'classrep',
+    'teacher',
+    'admin',
+    'staff',
+  ];
 
   // --- Helper: Check Role Requirements ---
   bool get isStudent => role == 'student' || role == 'classrep';
@@ -50,7 +70,8 @@ class _AddUserPageState extends State<AddUserPage> {
 
   // Field Validation Logic (Is it Mandatory?)
   bool get requiredRollNo => isStudent; // Student & ClassRep must have rollNo
-  bool get requiredBranch => isStudent || isTeacher; // Student, ClassRep, and Teacher
+  bool get requiredBranch =>
+      isStudent || isTeacher; // Student, ClassRep, and Teacher
   bool get requiredSemester => isStudent;
   bool get requiredSection => isStudent;
   bool get requiredDob => true; // DOB required for all roles
@@ -149,6 +170,11 @@ class _AddUserPageState extends State<AddUserPage> {
       if (!enableSemester) semester = '';
       if (!enableSection) section = '';
 
+      // Clear teacher fields if not teacher
+      if (!isTeacher) {
+        cabinRoom = '';
+      }
+
       final result = await ApiService.createUserWithProfile(
         name: name,
         email: email,
@@ -160,6 +186,8 @@ class _AddUserPageState extends State<AddUserPage> {
         semester: semester,
         section: section,
         branch: branch,
+        cabinRoom: isTeacher ? cabinRoom : null,
+        // availability is NOT sent, so backend uses default (true)
       );
 
       if (mounted) {
@@ -199,7 +227,7 @@ class _AddUserPageState extends State<AddUserPage> {
           key: _formKey,
           child: Column(
             children: [
-              // 1. Circular Image Editor (WhatsApp Style)
+              // 1. Circular Image Editor
               Center(
                 child: Stack(
                   children: [
@@ -213,16 +241,18 @@ class _AddUserPageState extends State<AddUserPage> {
                       child: ClipOval(
                         child: _profileFile != null
                             ? Image.file(
-                          _profileFile!,
-                          fit: BoxFit.cover,
-                          width: 130,
-                          height: 130,
-                        )
+                                _profileFile!,
+                                fit: BoxFit.cover,
+                                width: 130,
+                                height: 130,
+                              )
                             : Icon(
-                          Icons.person,
-                          size: 70,
-                          color: isDark ? Colors.grey[600] : Colors.grey[500],
-                        ),
+                                Icons.person,
+                                size: 70,
+                                color: isDark
+                                    ? Colors.grey[600]
+                                    : Colors.grey[500],
+                              ),
                       ),
                     ),
                     Positioned(
@@ -278,13 +308,15 @@ class _AddUserPageState extends State<AddUserPage> {
                       section = '';
                       rollNo = '';
                       branch = '';
+                      // Reset teacher fields
+                      cabinRoom = '';
                     });
                   }
                 },
               ),
               const SizedBox(height: 15),
 
-              // 2. Personal Info - Name (Required for all)
+              // 2. Personal Info - Name
               TextFormField(
                 decoration: const InputDecoration(
                   labelText: 'Full Name',
@@ -292,11 +324,12 @@ class _AddUserPageState extends State<AddUserPage> {
                   border: OutlineInputBorder(),
                 ),
                 onSaved: (v) => name = v?.trim() ?? '',
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Name required' : null,
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'Name required' : null,
               ),
               const SizedBox(height: 15),
 
-              // Email (Required for all)
+              // Email
               TextFormField(
                 decoration: const InputDecoration(
                   labelText: 'Email Address',
@@ -305,11 +338,13 @@ class _AddUserPageState extends State<AddUserPage> {
                 ),
                 keyboardType: TextInputType.emailAddress,
                 onSaved: (v) => email = v?.trim().toLowerCase() ?? '',
-                validator: (v) => (v == null || !v.contains('@')) ? 'Valid email required' : null,
+                validator: (v) => (v == null || !v.contains('@'))
+                    ? 'Valid email required'
+                    : null,
               ),
               const SizedBox(height: 15),
 
-              // Password (Required for all)
+              // Password
               TextFormField(
                 decoration: const InputDecoration(
                   labelText: 'Password',
@@ -318,14 +353,14 @@ class _AddUserPageState extends State<AddUserPage> {
                 ),
                 obscureText: true,
                 onSaved: (v) => password = v ?? '',
-                validator: (v) => (v == null || v.length < 6) ? 'Min 6 characters' : null,
+                validator: (v) =>
+                    (v == null || v.length < 6) ? 'Min 6 characters' : null,
               ),
               const SizedBox(height: 15),
 
               // 3. Roll No and Section Row
               Row(
                 children: [
-                  // Roll No (Student, ClassRep: Required | Admin: Optional | Others: Disabled)
                   Expanded(
                     child: AbsorbPointer(
                       absorbing: !enableRollNo,
@@ -341,7 +376,8 @@ class _AddUserPageState extends State<AddUserPage> {
                           ),
                           onSaved: (v) => rollNo = v?.trim() ?? '',
                           validator: (v) {
-                            if (requiredRollNo && (v == null || v.trim().isEmpty)) {
+                            if (requiredRollNo &&
+                                (v == null || v.trim().isEmpty)) {
                               return 'Required';
                             }
                             return null;
@@ -351,7 +387,6 @@ class _AddUserPageState extends State<AddUserPage> {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  // Section (Student, ClassRep: Required | Admin: Optional | Others: Disabled)
                   Expanded(
                     child: AbsorbPointer(
                       absorbing: !enableSection,
@@ -367,7 +402,8 @@ class _AddUserPageState extends State<AddUserPage> {
                           ),
                           onSaved: (v) => section = v?.trim() ?? '',
                           validator: (v) {
-                            if (requiredSection && (v == null || v.trim().isEmpty)) {
+                            if (requiredSection &&
+                                (v == null || v.trim().isEmpty)) {
                               return 'Required';
                             }
                             return null;
@@ -384,7 +420,6 @@ class _AddUserPageState extends State<AddUserPage> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Semester (Student, ClassRep: Required | Admin: Optional | Others: Disabled)
                   Expanded(
                     child: AbsorbPointer(
                       absorbing: !enableSemester,
@@ -406,14 +441,15 @@ class _AddUserPageState extends State<AddUserPage> {
                           }).toList(),
                           onChanged: enableSemester
                               ? (newValue) {
-                            setState(() {
-                              _selectedSemester = newValue;
-                              semester = newValue ?? '';
-                            });
-                          }
+                                  setState(() {
+                                    _selectedSemester = newValue;
+                                    semester = newValue ?? '';
+                                  });
+                                }
                               : null,
                           validator: (value) {
-                            if (requiredSemester && value == null) return 'Required';
+                            if (requiredSemester && value == null)
+                              return 'Required';
                             return null;
                           },
                           onSaved: (value) => semester = value ?? '',
@@ -422,7 +458,6 @@ class _AddUserPageState extends State<AddUserPage> {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  // Branch (Student, ClassRep, Teacher: Required | Admin: Optional | Staff: Disabled)
                   Expanded(
                     child: AbsorbPointer(
                       absorbing: !enableBranch,
@@ -439,7 +474,8 @@ class _AddUserPageState extends State<AddUserPage> {
                           ),
                           onSaved: (v) => branch = v?.trim() ?? '',
                           validator: (v) {
-                            if (requiredBranch && (v == null || v.trim().isEmpty)) {
+                            if (requiredBranch &&
+                                (v == null || v.trim().isEmpty)) {
                               return 'Required';
                             }
                             return null;
@@ -452,7 +488,24 @@ class _AddUserPageState extends State<AddUserPage> {
               ),
               const SizedBox(height: 15),
 
-              // 5. DOB Picker (Required for ALL roles)
+              // --- TEACHER SPECIFIC FIELDS ---
+              if (isTeacher) ...[
+                TextFormField(
+                  decoration: const InputDecoration(
+                    labelText: 'Cabin Number',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.room),
+                  ),
+                  onSaved: (v) => cabinRoom = v?.trim() ?? '',
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? 'Required for teacher'
+                      : null,
+                ),
+                // Availability Toggle REMOVED
+                const SizedBox(height: 15),
+              ],
+
+              // 5. DOB Picker
               InkWell(
                 onTap: _pickDob,
                 child: InputDecorator(
@@ -462,7 +515,9 @@ class _AddUserPageState extends State<AddUserPage> {
                     border: OutlineInputBorder(),
                   ),
                   child: Text(
-                    dob == null ? 'Select Date' : DateFormat.yMMMd().format(dob!),
+                    dob == null
+                        ? 'Select Date'
+                        : DateFormat.yMMMd().format(dob!),
                     style: TextStyle(
                       color: dob == null
                           ? Colors.grey[600]
@@ -488,20 +543,20 @@ class _AddUserPageState extends State<AddUserPage> {
                   ),
                   child: _isSubmitting
                       ? const SizedBox(
-                    height: 24,
-                    width: 24,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
+                          height: 24,
+                          width: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
                       : const Text(
-                    'Create User',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                          'Create User',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                 ),
               ),
             ],

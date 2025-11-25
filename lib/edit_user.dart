@@ -19,8 +19,8 @@ class _EditUserPageState extends State<EditUserPage> {
   Key _searchKey = UniqueKey();
 
   // Search State
-  String? _selectedUserId; // The ID of the user we are editing
-  String? _currentProfileUrl; // URL from backend
+  String? _selectedUserId;
+  String? _currentProfileUrl;
 
   // Form Fields
   String name = '';
@@ -32,6 +32,9 @@ class _EditUserPageState extends State<EditUserPage> {
   String section = '';
   String role = 'student';
   DateTime? dob;
+  
+  // Teacher Specific Field
+  String cabinRoom = '';
 
   File? _newProfileFile;
   bool _isSubmitting = false;
@@ -110,6 +113,9 @@ class _EditUserPageState extends State<EditUserPage> {
       semester = user['semester'] ?? '';
       section = user['section'] ?? '';
       password = ''; // Clear password field
+      
+      // Teacher Field: Ensure we handle missing/null cabinRoom
+      cabinRoom = user['cabinRoom'] ?? '';
 
       // Parse DOB
       if (user['dob'] != null) {
@@ -129,7 +135,7 @@ class _EditUserPageState extends State<EditUserPage> {
       } else {
         _currentProfileUrl = null;
       }
-      _newProfileFile = null; // Reset any locally picked file
+      _newProfileFile = null; 
     });
   }
 
@@ -137,13 +143,13 @@ class _EditUserPageState extends State<EditUserPage> {
   void _clearSelection() {
     setState(() {
       _selectedUserId = null;
-      _searchKey = UniqueKey(); // This forces the Autocomplete to reset completely
-      // Reset form variables just in case
+      _searchKey = UniqueKey(); 
       name = '';
       email = '';
       rollNo = '';
       branch = '';
       section = '';
+      cabinRoom = '';
       _newProfileFile = null;
       _currentProfileUrl = null;
     });
@@ -158,11 +164,17 @@ class _EditUserPageState extends State<EditUserPage> {
 
     setState(() => _isSubmitting = true);
     try {
-      // Clear disabled fields
+      // Clear fields that are not applicable to the current role
       if (!enableRollNo) rollNo = '';
       if (!enableBranch) branch = '';
       if (!enableSemester) semester = '';
       if (!enableSection) section = '';
+      
+      // IMPORTANT: If NOT teacher, clear cabin room so we don't send garbage
+      // If IS teacher, we send the value from the text field
+      if (!isTeacher) cabinRoom = '';
+
+      print("Sending Update -> Role: $role, Cabin: $cabinRoom"); // Debug print
 
       await ApiService.updateUserById(
         id: _selectedUserId!,
@@ -176,6 +188,7 @@ class _EditUserPageState extends State<EditUserPage> {
         section: section,
         branch: branch,
         profilePath: _newProfileFile?.path,
+        cabinRoom: isTeacher ? cabinRoom : null, // Explicitly pass null if not teacher
       );
 
       if (mounted) {
@@ -209,7 +222,7 @@ class _EditUserPageState extends State<EditUserPage> {
         await ApiService.deleteUser(_selectedUserId!);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User Deleted'), backgroundColor: Colors.green));
-          _clearSelection(); // Reset to search mode
+          _clearSelection();
         }
       } catch (e) {
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Delete Failed: $e'), backgroundColor: Colors.red));
@@ -232,7 +245,7 @@ class _EditUserPageState extends State<EditUserPage> {
           children: [
             // --- SEARCH BAR (Autocomplete) ---
             Autocomplete<Map<String, dynamic>>(
-              key: _searchKey, // IMPORTANT: Forces rebuild on clear
+              key: _searchKey,
               displayStringForOption: (option) => option['email'] ?? '',
               optionsBuilder: (TextEditingValue textEditingValue) async {
                 if (textEditingValue.text.isEmpty) {
@@ -256,13 +269,12 @@ class _EditUserPageState extends State<EditUserPage> {
                     labelText: 'Search User by Email',
                     hintText: 'Start typing email...',
                     prefixIcon: const Icon(Icons.search),
-                    // NEW: Clear Button
                     suffixIcon: textEditingController.text.isNotEmpty || _selectedUserId != null
                         ? IconButton(
                       icon: const Icon(Icons.clear),
                       onPressed: () {
                         textEditingController.clear();
-                        _clearSelection(); // Resets everything
+                        _clearSelection();
                       },
                     )
                         : null,
@@ -422,6 +434,22 @@ class _EditUserPageState extends State<EditUserPage> {
                       ],
                     ),
                     const SizedBox(height: 15),
+                    
+                    // --- Teacher Specific (Cabin Room Only) ---
+                    if (isTeacher)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 15),
+                        child: TextFormField(
+                          initialValue: cabinRoom,
+                          decoration: const InputDecoration(
+                            labelText: 'Cabin Number',
+                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.room),
+                          ),
+                          onSaved: (v) => cabinRoom = v?.trim() ?? '',
+                          validator: (v) => (v == null || v.trim().isEmpty) ? 'Required for teacher' : null,
+                        ),
+                      ),
 
                     // DOB
                     InkWell(

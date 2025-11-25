@@ -1,13 +1,22 @@
 import 'dart:convert';
 
-// --- SEARCH RESULT MODEL (For Admin Dropdown) ---
+// --- SEARCH RESULT MODEL (For Teacher Search) ---
 class TeacherSearchResult {
   final String id;
   final String name;
   final String dept;
   final String? image;
+  final String cabinRoom; // Added
+  final bool availability; // Added
 
-  TeacherSearchResult({required this.id, required this.name, required this.dept, this.image});
+  TeacherSearchResult({
+    required this.id,
+    required this.name,
+    required this.dept,
+    this.image,
+    this.cabinRoom = 'Not Assigned',
+    this.availability = false,
+  });
 
   factory TeacherSearchResult.fromJson(Map<String, dynamic> json) {
     return TeacherSearchResult(
@@ -15,6 +24,9 @@ class TeacherSearchResult {
       name: json['name'] ?? '',
       dept: json['dept'] ?? '',
       image: json['image'],
+      cabinRoom: json['cabinRoom'] ?? 'Not Assigned',
+      // Parse boolean safely from backend response
+      availability: json['availability'] == true || json['availability'].toString() == 'true',
     );
   }
 }
@@ -28,8 +40,8 @@ class Course {
   final String semester;
   final String section;
   final String facultyName;
-  final String facultyImage; // <--- Added
-  final String facultyDept;  // <--- Added
+  final String facultyImage;
+  final String facultyDept;
   final String color;
 
   Course({
@@ -66,8 +78,8 @@ class TimetableSlot {
   String courseCode;
   String courseName;
   String facultyName;
-  String facultyImage; // <--- Added
-  String facultyDept;  // <--- Added
+  String facultyImage;
+  String facultyDept;
   String color;
   String type;
   String room;
@@ -121,8 +133,6 @@ class TimetableSlot {
   }
 }
 
-// ... TimetableDay and Timetable classes remain the same ...
-// (Just make sure to keep them in the file as they were)
 class TimetableDay {
   final String dayName;
   final List<TimetableSlot> slots;

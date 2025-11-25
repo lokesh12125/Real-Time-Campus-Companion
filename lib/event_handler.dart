@@ -104,17 +104,7 @@ class _EventHandlerPageState extends State<EventHandlerPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Manage Events'),
-        elevation: 2,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadEvents,
-            tooltip: 'Refresh',
-          ),
-        ],
-      ),
+      // AppBar removed here to hide "Manage Events" title and reload icon
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null

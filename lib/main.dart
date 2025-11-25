@@ -3,7 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'home_page.dart';
-import 'auth_service.dart';
+import 'api_service.dart'; // Using ApiService for login
 import 'teacher_homepage.dart';
 import 'admin_homepage.dart';
 import 'staff_homepage.dart';
@@ -106,8 +106,7 @@ class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final AuthService _auth = AuthService();
-
+  
   bool _loading = false;
 
   // Helper method to create floating orbs
@@ -116,27 +115,25 @@ class _LoginPageState extends State<LoginPage> {
       Positioned(
         top: -50,
         left: -50,
-        child: _FloatingOrb(size: 200, color: const Color(0xFFD4AF37).withValues(alpha: 0.1)),
+        child: _FloatingOrb(size: 200, color: const Color(0xFFD4AF37).withOpacity(0.1)),
       ),
       Positioned(
         top: 100,
         right: -30,
-        child: _FloatingOrb(size: 150, color: const Color(0xFFA4123F).withValues(alpha: 0.2)),
+        child: _FloatingOrb(size: 150, color: const Color(0xFFA4123F).withOpacity(0.2)),
       ),
       Positioned(
         bottom: -80,
         right: 50,
-        child: _FloatingOrb(size: 250, color: const Color(0xFFD4AF37).withValues(alpha: 0.15)),
+        child: _FloatingOrb(size: 250, color: const Color(0xFFD4AF37).withOpacity(0.15)),
       ),
       Positioned(
         bottom: 100,
         left: -40,
-        child: _FloatingOrb(size: 180, color: Colors.white.withValues(alpha: 0.05)),
+        child: _FloatingOrb(size: 180, color: Colors.white.withOpacity(0.05)),
       ),
     ];
   }
-
-  // Inside _LoginPageState in lib/main.dart
 
   void _login() async {
     if (!_formKey.currentState!.validate()) return;
@@ -147,102 +144,99 @@ class _LoginPageState extends State<LoginPage> {
     final password = _passwordController.text.trim();
 
     try {
-      final res = await _auth.login(email, password);
-      if (res['ok'] == true) {
-        final user = res['user'] as Map<String, dynamic>? ?? {};
-        print("RAW USER DATA: $user");
-        // 1. Get user role and normalize it
-        final rawRole = (user['role'] as String?)?.trim().toLowerCase() ?? '';
-        final role = rawRole.isEmpty ? 'student' : rawRole;
+      // Use ApiService.login directly
+      final res = await ApiService.login(email, password);
+      
+      // If successful (no exception thrown)
+      final user = res['user'] as Map<String, dynamic>? ?? {};
+      
+      // 1. Get user role and normalize it
+      final rawRole = (user['role'] as String?)?.trim().toLowerCase() ?? '';
+      final role = rawRole.isEmpty ? 'student' : rawRole;
 
-        // 2. Extract Common user info
-        final userName = user['name'] ?? user['email'] ?? 'User';
-        final userEmail = user['email'] ?? '';
-        final branch = user['branch'] ?? 'N/A'; // Default if null
-        final section = user['section'] ?? 'N/A';
-        final semester = user['semester'];
+      // 2. Extract Common user info
+      final userName = user['name'] ?? user['email'] ?? 'User';
+      final userEmail = user['email'] ?? '';
+      final branch = user['branch'] ?? 'N/A'; 
+      final section = user['section'] ?? 'N/A';
+      final semester = user['semester'];
+      
+      // 3. Extract User ID (Critical for Teacher Update)
+      final userId = user['id'] ?? user['_id'];
 
-        // 3. Extract Profile Image (Safe handling)
-        // Checks if it exists and is not an empty string
-        final String? profile = (user['profile'] != null && user['profile'].toString().isNotEmpty)
-            ? user['profile'].toString()
-            : null;
-        print("EXTRACTED PROFILE URL: $profile");
-        Widget targetPage;
+      // 4. Extract Profile Image
+      final String? profile = (user['profile'] != null && user['profile'].toString().isNotEmpty)
+          ? user['profile'].toString()
+          : null;
 
-        // 4. Pass the 'profile' variable to all page constructors
-        if (role == 'teacher') {
-          targetPage = TeacherHomePage(
-            universityName: "Amrita Vishwa Vidyapeetham — Teacher",
-            userName: userName,
-            userEmail: userEmail,
-            //profile: profile,
-            isDark: widget.isDark,
-            onToggleTheme: widget.onToggleTheme,
-          );
-        } else if (role == 'staff') {
-          targetPage = StaffHomePage(
-            universityName: "Amrita Vishwa Vidyapeetham — Staff",
-            userName: userName,
-            userEmail: userEmail,
-            profile: profile,
-            isDark: widget.isDark,
-            onToggleTheme: widget.onToggleTheme,
-          );
-        } else if (role == 'admin') {
-          targetPage = AdminHomePage(
-            universityName: "Amrita Vishwa Vidyapeetham — Admin",
-            userName: userName,
-            userEmail: userEmail,
-            profile: profile,
-            isDark: widget.isDark,
-            onToggleTheme: widget.onToggleTheme,
-          );
-        } else if (role == 'classrep') {
-          targetPage = HomePage( // Assuming this is your CR page
-            universityName: _getUniversityNameForRole(role),
-            userName: userName,
-            userEmail: userEmail,
-            profile: profile,
-            isDark: widget.isDark,
-            onToggleTheme: widget.onToggleTheme,
-            branch: branch,
-            section: section,
-            semester: semester,
-          );
-        } else {
-          // Student
-          targetPage = StudentHomePage(
-            universityName: _getUniversityNameForRole(role),
-            userName: userName,
-            userEmail: userEmail,
-            profile: profile, // ✅ Passed here
-            isDark: widget.isDark,
-            onToggleTheme: widget.onToggleTheme,
-            branch: branch,
-            section: section,
-            semester: semester,
-          );
-        }
+      Widget targetPage;
 
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => targetPage),
-          );
-        }
+      if (role == 'teacher') {
+        targetPage = TeacherHomePage(
+          universityName: "Amrita Vishwa Vidyapeetham — Teacher",
+          userName: userName,
+          userEmail: userEmail,
+          userId: userId, // ✅ Passed ID here!
+          isDark: widget.isDark,
+          onToggleTheme: widget.onToggleTheme,
+        );
+      } else if (role == 'staff') {
+        targetPage = StaffHomePage(
+          universityName: "Amrita Vishwa Vidyapeetham — Staff",
+          userName: userName,
+          userEmail: userEmail,
+          profile: profile,
+          isDark: widget.isDark,
+          onToggleTheme: widget.onToggleTheme,
+        );
+      } else if (role == 'admin') {
+        targetPage = AdminHomePage(
+          universityName: "Amrita Vishwa Vidyapeetham — Admin",
+          userName: userName,
+          userEmail: userEmail,
+          profile: profile,
+          isDark: widget.isDark,
+          onToggleTheme: widget.onToggleTheme,
+        );
+      } else if (role == 'classrep') {
+        targetPage = HomePage( 
+          universityName: _getUniversityNameForRole(role),
+          userName: userName,
+          userEmail: userEmail,
+          profile: profile,
+          isDark: widget.isDark,
+          onToggleTheme: widget.onToggleTheme,
+          branch: branch,
+          section: section,
+          semester: semester,
+        );
       } else {
-        final err = res['error'] ?? 'Login failed';
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(err.toString())),
-          );
-        }
+        // Student
+        targetPage = StudentHomePage(
+          universityName: _getUniversityNameForRole(role),
+          userName: userName,
+          userEmail: userEmail,
+          profile: profile, 
+          isDark: widget.isDark,
+          onToggleTheme: widget.onToggleTheme,
+          branch: branch,
+          section: section,
+          semester: semester,
+        );
+      }
+
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => targetPage),
+        );
       }
     } catch (e) {
       if (mounted) {
+        // Clean up exception message for UI
+        final msg = e.toString().replaceAll("Exception: ", "");
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text(msg), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -280,7 +274,7 @@ class _LoginPageState extends State<LoginPage> {
               const Color(0xFF1a0a14),
               maroonColor,
               const Color(0xFF5a1035),
-              maroonColor.withValues(alpha: 0.8),
+              maroonColor.withOpacity(0.8),
               const Color(0xFF2d0a1f),
             ],
             stops: const [0.0, 0.25, 0.5, 0.75, 1.0],
@@ -307,13 +301,13 @@ class _LoginPageState extends State<LoginPage> {
                             shape: BoxShape.circle,
                             gradient: LinearGradient(
                               colors: [
-                                Colors.white.withValues(alpha: 0.2),
-                                Colors.white.withValues(alpha: 0.1),
+                                Colors.white.withOpacity(0.2),
+                                Colors.white.withOpacity(0.1),
                               ],
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: goldColor.withValues(alpha: 0.3),
+                                color: goldColor.withOpacity(0.3),
                                 blurRadius: 30,
                                 spreadRadius: 5,
                               ),
@@ -343,7 +337,7 @@ class _LoginPageState extends State<LoginPage> {
                             color: Colors.white,
                             shadows: [
                               Shadow(
-                                color: maroonColor.withValues(alpha: 0.5),
+                                color: maroonColor.withOpacity(0.5),
                                 blurRadius: 10,
                               ),
                             ],
@@ -356,7 +350,7 @@ class _LoginPageState extends State<LoginPage> {
                           "Sign in to continue",
                           style: TextStyle(
                             fontSize: 16,
-                            color: Colors.white.withValues(alpha: 0.8),
+                            color: Colors.white.withOpacity(0.8),
                             letterSpacing: 0.5,
                           ),
                         ),
@@ -372,17 +366,17 @@ class _LoginPageState extends State<LoginPage> {
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                               colors: [
-                                Colors.white.withValues(alpha: 0.15),
-                                Colors.white.withValues(alpha: 0.05),
+                                Colors.white.withOpacity(0.15),
+                                Colors.white.withOpacity(0.05),
                               ],
                             ),
                             border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.2),
+                              color: Colors.white.withOpacity(0.2),
                               width: 1.5,
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.2),
+                                color: Colors.black.withOpacity(0.2),
                                 blurRadius: 30,
                                 spreadRadius: -5,
                               ),
@@ -405,10 +399,10 @@ class _LoginPageState extends State<LoginPage> {
                                         style: const TextStyle(color: Colors.white),
                                         decoration: InputDecoration(
                                           labelText: "Email",
-                                          labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.8)),
+                                          labelStyle: TextStyle(color: Colors.white.withOpacity(0.8)),
                                           prefixIcon: Icon(Icons.email_outlined, color: goldColor),
                                           filled: true,
-                                          fillColor: Colors.white.withValues(alpha: 0.1),
+                                          fillColor: Colors.white.withOpacity(0.1),
                                           border: OutlineInputBorder(
                                             borderRadius: BorderRadius.circular(15),
                                             borderSide: BorderSide.none,
@@ -416,7 +410,7 @@ class _LoginPageState extends State<LoginPage> {
                                           enabledBorder: OutlineInputBorder(
                                             borderRadius: BorderRadius.circular(15),
                                             borderSide: BorderSide(
-                                              color: Colors.white.withValues(alpha: 0.2),
+                                              color: Colors.white.withOpacity(0.2),
                                               width: 1,
                                             ),
                                           ),
@@ -440,10 +434,10 @@ class _LoginPageState extends State<LoginPage> {
                                         style: const TextStyle(color: Colors.white),
                                         decoration: InputDecoration(
                                           labelText: "Password",
-                                          labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.8)),
+                                          labelStyle: TextStyle(color: Colors.white.withOpacity(0.8)),
                                           prefixIcon: Icon(Icons.lock_outline, color: goldColor),
                                           filled: true,
-                                          fillColor: Colors.white.withValues(alpha: 0.1),
+                                          fillColor: Colors.white.withOpacity(0.1),
                                           border: OutlineInputBorder(
                                             borderRadius: BorderRadius.circular(15),
                                             borderSide: BorderSide.none,
@@ -451,7 +445,7 @@ class _LoginPageState extends State<LoginPage> {
                                           enabledBorder: OutlineInputBorder(
                                             borderRadius: BorderRadius.circular(15),
                                             borderSide: BorderSide(
-                                              color: Colors.white.withValues(alpha: 0.2),
+                                              color: Colors.white.withOpacity(0.2),
                                               width: 1,
                                             ),
                                           ),
@@ -478,7 +472,7 @@ class _LoginPageState extends State<LoginPage> {
                                             backgroundColor: maroonColor,
                                             foregroundColor: Colors.white,
                                             elevation: 8,
-                                            shadowColor: maroonColor.withValues(alpha: 0.5),
+                                            shadowColor: maroonColor.withOpacity(0.5),
                                             shape: RoundedRectangleBorder(
                                               borderRadius: BorderRadius.circular(15),
                                             ),
@@ -590,7 +584,7 @@ class _FloatingOrbState extends State<_FloatingOrb> with SingleTickerProviderSta
               gradient: RadialGradient(
                 colors: [
                   widget.color,
-                  widget.color.withValues(alpha: 0),
+                  widget.color.withOpacity(0),
                 ],
               ),
             ),

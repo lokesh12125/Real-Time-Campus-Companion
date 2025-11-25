@@ -1,4 +1,3 @@
-// lib/admin_homepage.dart
 import 'dart:io' show File;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -11,15 +10,14 @@ import 'add_user.dart';
 import 'edit_user.dart';
 import 'add_timetable_page.dart';
 import 'edit_timetable_page.dart';
-import 'faculty_cabin_page.dart';   // Ensure you have the file from the previous step
-import 'main.dart';                 // For LoginPage redirection
+import 'main.dart';
 
 class AdminHomePage extends StatefulWidget {
   final String universityName;
   final String userName;
   final String userEmail;
   final String? profile;
-  final bool isDark;
+  final bool isDark; // Kept for signature compatibility, but we prefer Theme.of(context)
   final ValueChanged<bool> onToggleTheme;
 
   const AdminHomePage({
@@ -37,18 +35,13 @@ class AdminHomePage extends StatefulWidget {
 }
 
 class _AdminHomePageState extends State<AdminHomePage> {
-  // 0 = Home, 1 = Events, 2 = Profile
   int _currentIndex = 0;
-
-  // Hover states for dashboard cards
   int? _hoveredEventIndex;
   int? _hoveredUserIndex;
 
-  // --- Backend Data State ---
   List<dynamic> _dashboardEvents = [];
   bool _isLoading = true;
 
-  // Mock Users for Dashboard Display
   final List<Map<String, String>> _users = [
     {'id': 'u1', 'roll': 'R001'},
     {'id': 'u2', 'roll': 'R002'},
@@ -59,10 +52,12 @@ class _AdminHomePageState extends State<AdminHomePage> {
   late String _profileImage;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
+  // ✅ Helper to get current theme state directly from context
+  bool get _isDark => Theme.of(context).brightness == Brightness.dark;
+
   @override
   void initState() {
     super.initState();
-    // Initialize with data passed from main.dart
     _adminName = widget.userName;
     _profileImage = widget.profile ?? '';
     _fetchDashboardData();
@@ -79,11 +74,22 @@ class _AdminHomePageState extends State<AdminHomePage> {
       }
     } catch (e) {
       print("Error loading dashboard data: $e");
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _dashboardEvents = [];
+          _isLoading = false;
+        });
+      }
     }
   }
 
-  // --- UI Color Palettes ---
+  // --- Colors & Gradients ---
+
+  // Unified Gradient for Consistency
+  List<Color> get _headerGradientColors => _isDark
+      ? [const Color(0xFF1A1A2E), const Color(0xFF16213E)]
+      : [const Color(0xFF0D6EFD), const Color(0xFF20C997)];
+
   List<Color> get _palette => [
     const Color(0xFF0D6EFD),
     const Color(0xFF20C997),
@@ -97,7 +103,6 @@ class _AdminHomePageState extends State<AdminHomePage> {
     return base.withOpacity(opacity);
   }
 
-  // --- Helpers ---
   String _avatarFromRoll(String roll) {
     if (roll.isEmpty) return '';
     return roll.length >= 2 ? roll.substring(roll.length - 2) : roll;
@@ -118,18 +123,26 @@ class _AdminHomePageState extends State<AdminHomePage> {
     }
   }
 
-  // --- Main Dashboard Views ---
-
-  Widget _summaryCard(String title, String value, IconData icon, {required Color start, required Color end}) {
+  Widget _summaryCard(String title, String value, IconData icon,
+      {required Color start, required Color end}) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 260),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [start, end], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        gradient: LinearGradient(
+            colors: [start, end],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight),
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
-          BoxShadow(color: end.withOpacity(0.28), blurRadius: 20, offset: const Offset(0, 10)),
-          BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 6, offset: const Offset(0, 4)),
+          BoxShadow(
+              color: end.withOpacity(0.28),
+              blurRadius: 20,
+              offset: const Offset(0, 10)),
+          BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 6,
+              offset: const Offset(0, 4)),
         ],
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -139,11 +152,19 @@ class _AdminHomePageState extends State<AdminHomePage> {
           child: Icon(icon, size: 22, color: Colors.white),
         ),
         const SizedBox(width: 14),
-        Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-          Text(title, style: const TextStyle(color: Colors.white70, fontSize: 14)),
-          const SizedBox(height: 6),
-          Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 20)),
-        ]),
+        Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(title,
+                  style: const TextStyle(color: Colors.white70, fontSize: 14)),
+              const SizedBox(height: 6),
+              Text(value,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 20)),
+            ]),
       ]),
     );
   }
@@ -165,13 +186,16 @@ class _AdminHomePageState extends State<AdminHomePage> {
       Widget summaryRow;
       final cardEvents = SizedBox(
           width: narrow ? 260 : null,
-          child: _summaryCard('Events', eventCount, Icons.event, start: eventsStart, end: eventsEnd));
+          child: _summaryCard('Events', eventCount, Icons.event,
+              start: eventsStart, end: eventsEnd));
       final cardRegs = SizedBox(
           width: narrow ? 260 : null,
-          child: _summaryCard('Registrations', 'N/A', Icons.how_to_reg, start: regsStart, end: regsEnd));
+          child: _summaryCard('Registrations', 'N/A', Icons.how_to_reg,
+              start: regsStart, end: regsEnd));
       final cardUsers = SizedBox(
           width: narrow ? 260 : null,
-          child: _summaryCard('Users', _users.length.toString(), Icons.people, start: usersStart, end: usersEnd));
+          child: _summaryCard('Users', _users.length.toString(), Icons.people,
+              start: usersStart, end: usersEnd));
 
       if (!narrow) {
         summaryRow = Row(
@@ -186,58 +210,110 @@ class _AdminHomePageState extends State<AdminHomePage> {
       } else {
         summaryRow = SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          child: Row(children: [cardEvents, const SizedBox(width: 12), cardRegs, const SizedBox(width: 12), cardUsers]),
+          child: Row(children: [
+            cardEvents,
+            const SizedBox(width: 12),
+            cardRegs,
+            const SizedBox(width: 12),
+            cardUsers
+          ]),
         );
       }
 
       return SingleChildScrollView(
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          // --- HEADER / BANNER ---
+          // --- HEADER ---
+          // EXACT SAME LOOK as Profile Page Header
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
             height: narrow ? 140 : 160,
             decoration: BoxDecoration(
-              borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(20), bottomRight: Radius.circular(20)),
-              gradient: LinearGradient(
-                colors: widget.isDark ? [Colors.grey.shade900, Colors.grey.shade800] : const [Color(0xFF0D6EFD), Color(0xFF20C997)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              image: DecorationImage(
-                image: _imageProviderFor(_profileImage),
-                fit: BoxFit.cover,
-                colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.06), BlendMode.darken),
-              ),
+                borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(24),
+                    bottomRight: Radius.circular(24)),
+                gradient: LinearGradient(
+                  colors: _headerGradientColors,
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                      color: (_isDark ? _headerGradientColors.first : const Color(0xFF00ACC1)).withOpacity(0.4),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10)
+                  )
+                ]
             ),
             child: SafeArea(
               bottom: false,
               child: Row(
                 children: [
-                  CircleAvatar(radius: 26, backgroundColor: Colors.white.withOpacity(0.12), child: const Icon(Icons.admin_panel_settings, size: 26, color: Colors.white)),
+                  Hero(
+                    tag: 'profile_image_home',
+                    child: Container(
+                      decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 3),
+                          boxShadow: [
+                            BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10)
+                          ]
+                      ),
+                      child: CircleAvatar(
+                        radius: 32,
+                        backgroundColor: Colors.white.withOpacity(0.2),
+                        backgroundImage: _profileImage.isNotEmpty
+                            ? _imageProviderFor(_profileImage)
+                            : null,
+                        child: _profileImage.isEmpty
+                            ? const Icon(Icons.admin_panel_settings,
+                            size: 32, color: Colors.white)
+                            : null,
+                      ),
+                    ),
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('Welcome,', style: TextStyle(color: Colors.white.withOpacity(0.95), fontSize: 14)),
-                      const SizedBox(height: 4),
-                      Text(_adminName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 20), overflow: TextOverflow.ellipsis),
-                      const SizedBox(height: 4),
-                      Text(widget.universityName, style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 12)),
-                    ]),
+                    child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Welcome,',
+                              style: TextStyle(
+                                  color: Colors.white.withOpacity(0.95),
+                                  fontSize: 14)),
+                          const SizedBox(height: 4),
+                          Text(_adminName,
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 20),
+                              overflow: TextOverflow.ellipsis),
+                          const SizedBox(height: 4),
+                          Text(widget.universityName,
+                              style: TextStyle(
+                                  color: Colors.white.withOpacity(0.9),
+                                  fontSize: 12)),
+                        ]),
                   ),
                 ],
               ),
             ),
           ),
 
-          // --- SUMMARY CARDS ---
+          // --- SUMMARY ---
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: widget.isDark ? Colors.white.withOpacity(0.03) : const Color(0xFFF7FBFF),
+                color: _isDark
+                    ? const Color(0xFF1E1E2E).withOpacity(0.8)
+                    : const Color(0xFFF7FBFF),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: widget.isDark ? Colors.white.withOpacity(0.02) : Colors.blue.withOpacity(0.04)),
+                border: Border.all(
+                    color: _isDark
+                        ? Colors.white.withOpacity(0.08)
+                        : Colors.blue.withOpacity(0.04)),
               ),
               child: summaryRow,
             ),
@@ -245,33 +321,47 @@ class _AdminHomePageState extends State<AdminHomePage> {
 
           const SizedBox(height: 18),
 
-          // --- RECENT EVENTS & USERS ---
+          // --- RECENT EVENTS ---
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Recent events', style: Theme.of(context).textTheme.titleMedium),
+            child:
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Recent events',
+                  style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
-
               if (_isLoading)
-                const Center(child: CircularProgressIndicator())
-              else if (_dashboardEvents.isEmpty)
                 const Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: Text("No events found."),
-                )
+                    padding: EdgeInsets.all(16.0),
+                    child: Center(child: CircularProgressIndicator()))
+              else if (_dashboardEvents.isEmpty)
+                Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Center(
+                        child: Column(children: [
+                          Icon(Icons.event_busy,
+                              size: 48, color: Colors.grey[400]),
+                          const SizedBox(height: 8),
+                          Text("No events found.",
+                              style: TextStyle(color: Colors.grey[600]))
+                        ])))
               else
                 Column(
-                  children: _dashboardEvents.take(5).toList().asMap().entries.map((entry) {
+                  children: _dashboardEvents
+                      .take(5)
+                      .toList()
+                      .asMap()
+                      .entries
+                      .map((entry) {
                     final i = entry.key;
                     final event = entry.value;
-
                     final String title = event['title'] ?? 'Untitled';
                     final String imageUrl = event['imageUrl'] ?? '';
                     final String date = event['date'] != null
-                        ? event['date'].toString().substring(0, 10)
+                        ? event['date'].toString().split('T')[0]
                         : '';
-
-                    final bg = widget.isDark ? _paletteColor(i, opacity: 0.12) : _paletteColor(i, opacity: 0.10);
+                    final bg = _isDark
+                        ? _paletteColor(i, opacity: 0.12)
+                        : _paletteColor(i, opacity: 0.10);
                     final isHovered = _hoveredEventIndex == i;
 
                     return Padding(
@@ -279,35 +369,44 @@ class _AdminHomePageState extends State<AdminHomePage> {
                       child: MouseRegion(
                         onEnter: (_) => setState(() => _hoveredEventIndex = i),
                         onExit: (_) => setState(() => _hoveredEventIndex = null),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 180),
-                          transform: Matrix4.identity()..scale(isHovered ? 1.02 : 1.0),
-                          decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
-                          child: ListTile(
-                            leading: ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: imageUrl.isNotEmpty
-                                  ? Image.network(
-                                imageUrl,
-                                width: 50,
-                                height: 50,
-                                fit: BoxFit.cover,
-                                errorBuilder: (c, o, s) => Container(
-                                  width: 50, height: 50,
-                                  color: _paletteColor(i),
-                                  child: const Icon(Icons.event, color: Colors.white),
-                                ),
-                              )
-                                  : Container(
-                                width: 50, height: 50,
-                                color: _paletteColor(i),
-                                child: const Icon(Icons.event, color: Colors.white),
+                        child: InkWell(
+                          onTap: () => setState(() => _currentIndex = 1),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            transform: Matrix4.identity()
+                              ..scale(isHovered ? 1.02 : 1.0),
+                            decoration: BoxDecoration(
+                                color: bg,
+                                borderRadius: BorderRadius.circular(12)),
+                            child: ListTile(
+                              leading: ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: imageUrl.isNotEmpty
+                                    ? Image.network(imageUrl,
+                                    width: 50,
+                                    height: 50,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (c, o, s) => Container(
+                                        width: 50,
+                                        height: 50,
+                                        color: _paletteColor(i),
+                                        child: const Icon(Icons.event,
+                                            color: Colors.white)))
+                                    : Container(
+                                    width: 50,
+                                    height: 50,
+                                    color: _paletteColor(i),
+                                    child: const Icon(Icons.event,
+                                        color: Colors.white)),
                               ),
+                              title: Text(title,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w600)),
+                              subtitle: Text(date.isNotEmpty ? date : 'No date'),
+                              trailing: const Icon(Icons.chevron_right),
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
                             ),
-                            title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-                            subtitle: Text(date),
-                            trailing: const Icon(Icons.chevron_right),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           ),
                         ),
                       ),
@@ -316,14 +415,16 @@ class _AdminHomePageState extends State<AdminHomePage> {
                 ),
 
               const SizedBox(height: 18),
-              Text('Recent users', style: Theme.of(context).textTheme.titleMedium),
+              Text('Recent users',
+                  style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               Column(
                 children: _users.take(8).toList().asMap().entries.map((entry) {
                   final i = entry.key;
                   final u = entry.value;
                   final roll = u['roll'] ?? '';
-                  final bg = _paletteColor(i, opacity: widget.isDark ? 0.12 : 0.08);
+                  final bg =
+                  _paletteColor(i, opacity: _isDark ? 0.12 : 0.08);
                   final avatarColor = _paletteColor(i);
                   final isHovered = _hoveredUserIndex == i;
                   return Padding(
@@ -335,11 +436,17 @@ class _AdminHomePageState extends State<AdminHomePage> {
                         duration: const Duration(milliseconds: 160),
                         scale: isHovered ? 1.02 : 1.0,
                         child: Container(
-                          decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
+                          decoration: BoxDecoration(
+                              color: bg, borderRadius: BorderRadius.circular(12)),
                           child: ListTile(
-                            leading: CircleAvatar(backgroundColor: avatarColor, child: Text(_avatarFromRoll(roll), style: const TextStyle(color: Colors.white))),
+                            leading: CircleAvatar(
+                                backgroundColor: avatarColor,
+                                child: Text(_avatarFromRoll(roll),
+                                    style:
+                                    const TextStyle(color: Colors.white))),
                             title: Text(roll),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 6),
                           ),
                         ),
                       ),
@@ -356,7 +463,9 @@ class _AdminHomePageState extends State<AdminHomePage> {
   }
 
   Widget _buildProfile() {
+    // Pass the current unified state down to the profile page
     return AdminProfilePage(
+      key: ValueKey(_isDark), // Force rebuild to sync animations/colors
       initialName: _adminName,
       initialEmail: widget.userEmail,
       initialDeptSection: 'Admin',
@@ -364,78 +473,97 @@ class _AdminHomePageState extends State<AdminHomePage> {
       onChangePhoto: _changeProfileImage,
       onChangePassword: (ctx) => _changePassword(ctx),
       onLogout: _logout,
-      onToggleTheme: widget.onToggleTheme,
+      // Sync Theme Toggle: When profile toggles, we call the main callback
+      onToggleTheme: (value) {
+        widget.onToggleTheme(value);
+      },
       onUpdateName: (n) => setState(() => _adminName = n),
       onUpdateEmail: (e) { /* keep same */ },
       showAdminActions: true,
-      isDark: widget.isDark,
+      isDark: _isDark, // Pass current state
     );
   }
 
-  // --- DRAWER WITH CONNECTED PAGES ---
   Drawer _buildDrawer() {
-    // Helper for Drawer Items
     Widget item(String label, IconData icon, VoidCallback onTap) => Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 6),
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
-        onTap: () { Navigator.of(context).pop(); onTap(); }, // Close drawer then navigate
+        onTap: () {
+          Navigator.of(context).pop();
+          onTap();
+        },
         child: ListTile(
-          leading: Container(width: 6, height: double.infinity, decoration: BoxDecoration(color: Colors.blue, borderRadius: BorderRadius.circular(6))),
-          title: Text(label, style: TextStyle(color: widget.isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.w600)),
-          trailing: Icon(icon, color: widget.isDark ? Colors.white : Colors.blue),
+          leading: Container(
+              width: 6,
+              height: double.infinity,
+              decoration: BoxDecoration(
+                  color: _isDark ? const Color(0xFF64B5F6) : Colors.blue,
+                  borderRadius: BorderRadius.circular(6))),
+          title: Text(label,
+              style: TextStyle(
+                  color: _isDark ? Colors.white : Colors.black87,
+                  fontWeight: FontWeight.w600)),
+          trailing: Icon(icon,
+              color: _isDark ? const Color(0xFF64B5F6) : Colors.blue),
         ),
       ),
     );
 
     return Drawer(
-      backgroundColor: widget.isDark ? Colors.grey.shade900 : Colors.white,
+      backgroundColor: _isDark ? const Color(0xFF121212) : Colors.white,
       child: ListView(padding: EdgeInsets.zero, children: [
         DrawerHeader(
           decoration: BoxDecoration(
-            gradient: LinearGradient(colors: widget.isDark ? [Colors.grey.shade900, Colors.grey.shade800] : const [Color(0xFF0D6EFD), Color(0xFF20C997)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+            gradient: LinearGradient(
+                colors: _headerGradientColors,
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight),
           ),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const CircleAvatar(radius: 28, child: Icon(Icons.admin_panel_settings, color: Colors.white)),
-            const SizedBox(height: 8),
-            Text(_adminName, style: const TextStyle(fontSize: 18, color: Colors.white)),
-            const SizedBox(height: 4),
-            const Text('Administrator', style: TextStyle(color: Colors.white70)),
-          ]),
+          child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CircleAvatar(
+                  radius: 28,
+                  backgroundImage: _profileImage.isNotEmpty
+                      ? _imageProviderFor(_profileImage)
+                      : null,
+                  child: _profileImage.isEmpty
+                      ? const Icon(Icons.admin_panel_settings,
+                      color: Colors.white)
+                      : null,
+                ),
+                const SizedBox(height: 8),
+                Text(_adminName,
+                    style:
+                    const TextStyle(fontSize: 18, color: Colors.white)),
+                const SizedBox(height: 4),
+                const Text('Administrator',
+                    style: TextStyle(color: Colors.white70)),
+              ]),
         ),
-
-        // --- NAVIGATION LINKS ---
-
-        // 1. Courses (Navigate to External Page)
         item('Courses', Icons.book, () {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminCoursePage()));
+          Navigator.push(context,
+              MaterialPageRoute(builder: (context) => const AdminCoursePage()));
         }),
-
-        // 2. Add User (Navigate to External Page)
         item('Add User', Icons.person_add, () {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => AddUserPage(api: ApiService())));
+          Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => AddUserPage(api: ApiService())));
         }),
-
-        // 3. Edit User (Navigate to External Page)
         item('Edit User', Icons.edit, () {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => const EditUserPage()));
+          Navigator.push(context,
+              MaterialPageRoute(builder: (context) => const EditUserPage()));
         }),
-
-        // 4. Add Timetable (Navigate to External Page)
         item('Add Timetable', Icons.schedule_send, () {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => const AddTimetablePage()));
+          Navigator.push(context,
+              MaterialPageRoute(builder: (context) => const AddTimetablePage()));
         }),
-
-        // 5. Edit Timetable (Navigate to External Page)
         item('Edit Timetable', Icons.edit_calendar, () {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => const EditTimetablePage()));
+          Navigator.push(context,
+              MaterialPageRoute(builder: (context) => const EditTimetablePage()));
         }),
-
-        // 6. Faculty Cabin (Navigate to NEW Separate Page)
-        item('Faculty Cabin', Icons.meeting_room, () {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => const FacultyCabinPage()));
-        }),
-
         const Divider(),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -446,8 +574,26 @@ class _AdminHomePageState extends State<AdminHomePage> {
             },
             borderRadius: BorderRadius.circular(10),
             child: Container(
-              decoration: BoxDecoration(color: widget.isDark ? Colors.red.withOpacity(.08) : Colors.red.withOpacity(.06), borderRadius: BorderRadius.circular(10)),
-              child: ListTile(leading: Container(width: 6, height: double.infinity, decoration: BoxDecoration(color: Colors.redAccent, borderRadius: BorderRadius.circular(6))), title: Text('Logout', style: TextStyle(color: widget.isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.w600)), trailing: Icon(Icons.logout, color: widget.isDark ? Colors.white : Colors.redAccent)),
+              decoration: BoxDecoration(
+                  color: _isDark
+                      ? const Color(0xFFEF5350).withOpacity(.15)
+                      : Colors.red.withOpacity(.06),
+                  borderRadius: BorderRadius.circular(10)),
+              child: ListTile(
+                  leading: Container(
+                      width: 6,
+                      height: double.infinity,
+                      decoration: BoxDecoration(
+                          color: Colors.redAccent,
+                          borderRadius: BorderRadius.circular(6))),
+                  title: Text('Logout',
+                      style: TextStyle(
+                          color: _isDark ? Colors.white : Colors.black87,
+                          fontWeight: FontWeight.w600)),
+                  trailing: Icon(Icons.logout,
+                      color: _isDark
+                          ? const Color(0xFFEF5350)
+                          : Colors.redAccent)),
             ),
           ),
         ),
@@ -460,12 +606,41 @@ class _AdminHomePageState extends State<AdminHomePage> {
       automaticallyImplyLeading: false,
       backgroundColor: Colors.transparent,
       elevation: 0,
-      flexibleSpace: Container(decoration: BoxDecoration(gradient: LinearGradient(colors: widget.isDark ? [Colors.grey.shade900, Colors.grey.shade800] : const [Color(0xFF0D6EFD), Color(0xFF20C997)], begin: Alignment.centerLeft, end: Alignment.centerRight))),
+      flexibleSpace: Container(
+          decoration: BoxDecoration(
+              gradient: LinearGradient(
+                  colors: _headerGradientColors,
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight))),
       title: Row(children: [
-        IconButton(icon: const Icon(Icons.menu, color: Colors.white), onPressed: () => _scaffoldKey.currentState?.openDrawer()),
+        IconButton(
+            icon: const Icon(Icons.menu, color: Colors.white),
+            onPressed: () => _scaffoldKey.currentState?.openDrawer()),
         const SizedBox(width: 8),
-        Expanded(child: Center(child: Text(widget.universityName, style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white)))),
-        IconButton(icon: Icon(widget.isDark ? Icons.dark_mode : Icons.light_mode, color: Colors.white), onPressed: () => widget.onToggleTheme(!widget.isDark), tooltip: 'Toggle theme'),
+        Expanded(
+            child: Center(
+                child: Text(widget.universityName,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white)))),
+        // 🌞/QA Toggle Button
+        IconButton(
+          key: const ValueKey('admin_theme_toggle'),
+          icon: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            transitionBuilder: (child, anim) => RotationTransition(turns: anim, child: child),
+            child: Icon(
+              _isDark ? Icons.wb_sunny : Icons.nightlight_round,
+              key: ValueKey(_isDark),
+              color: Colors.white,
+            ),
+          ),
+          onPressed: () {
+            // Toggle the theme by calling callback with OPPOSITE of current state
+            widget.onToggleTheme(!_isDark);
+          },
+          tooltip: _isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
+        ),
       ]),
       centerTitle: true,
     );
@@ -473,58 +648,124 @@ class _AdminHomePageState extends State<AdminHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    // We only keep the Main Tabs here. All management tools (User/Timetable/Faculty) are now in the Drawer.
+    // Because the PageView keeps state, we force rebuilds if theme changes
+    // using the key or setState above.
     final pages = [
-      _buildHome(),             // 0: Home Dashboard
-      const EventHandlerPage(), // 1: Full Event Page (Connected)
-      _buildProfile(),          // 2: Profile Page
+      _buildHome(),
+      const EventHandlerPage(),
+      _buildProfile(),
     ];
+
+    final pageController = PageController(initialPage: _currentIndex);
 
     return Scaffold(
       key: _scaffoldKey,
       appBar: _buildAppBar(),
       drawer: _buildDrawer(),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 300),
-        child: SizedBox(key: ValueKey(_currentIndex), height: double.infinity, child: pages[_currentIndex]),
+      body: PageView(
+        controller: pageController,
+        onPageChanged: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        children: pages,
       ),
-
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: widget.isDark ? Colors.grey.shade900.withOpacity(0.92) : Colors.white.withOpacity(0.95),
-          borderRadius: const BorderRadius.only(topLeft: Radius.circular(18), topRight: Radius.circular(18)),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, -2))],
+          color: _isDark
+              ? const Color(0xFF1E1E2E)
+              : Colors.white.withOpacity(0.95),
+          borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(18), topRight: Radius.circular(18)),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(_isDark ? 0.3 : 0.08),
+                blurRadius: 12,
+                offset: const Offset(0, -2))
+          ],
         ),
         child: BottomNavigationBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
           currentIndex: _currentIndex,
+          selectedItemColor:
+          _isDark ? const Color(0xFF64B5F6) : Colors.blue.shade700,
+          unselectedItemColor:
+          _isDark ? Colors.grey.shade500 : Colors.grey.shade600,
           onTap: (i) {
             setState(() {
               _currentIndex = i;
             });
+            pageController.animateToPage(
+              i,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+            );
           },
           items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home, size: 26), label: 'Home'),
-            BottomNavigationBarItem(icon: Icon(Icons.event, size: 26), label: 'Events'),
-            BottomNavigationBarItem(icon: Icon(Icons.person, size: 26), label: 'Profile'),
+            BottomNavigationBarItem(
+                icon: Icon(Icons.home, size: 26), label: 'Home'),
+            BottomNavigationBarItem(
+                icon: Icon(Icons.event, size: 26), label: 'Events'),
+            BottomNavigationBarItem(
+                icon: Icon(Icons.person, size: 26), label: 'Profile'),
           ],
         ),
       ),
     );
   }
 
-  // --- Actions & Dialogs ---
-
   void _changeProfileImage() {
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile photo updated (admin handler)')));
+    ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile photo updated (admin handler)')));
   }
 
   Future<void> _changePassword(BuildContext ctx) async {
     final oldCtrl = TextEditingController();
     final newCtrl = TextEditingController();
     final confirmCtrl = TextEditingController();
-    await showDialog(context: ctx, builder: (dCtx) => AlertDialog(title: const Text('Change Password'), content: Column(mainAxisSize: MainAxisSize.min, children: [TextField(controller: oldCtrl, obscureText: true, decoration: const InputDecoration(labelText: 'Current password')), const SizedBox(height: 8), TextField(controller: newCtrl, obscureText: true, decoration: const InputDecoration(labelText: 'New password')), const SizedBox(height: 8), TextField(controller: confirmCtrl, obscureText: true, decoration: const InputDecoration(labelText: 'Confirm new password'))]), actions: [TextButton(onPressed: () => Navigator.pop(dCtx), child: const Text('Cancel')), ElevatedButton(onPressed: () { if (newCtrl.text != confirmCtrl.text || newCtrl.text.isEmpty) { ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Passwords do not match'))); return; } Navigator.pop(dCtx); ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Password changed'))); }, child: const Text('Update'))]));
+    await showDialog(
+        context: ctx,
+        builder: (dCtx) => AlertDialog(
+            title: const Text('Change Password'),
+            content: Column(mainAxisSize: MainAxisSize.min, children: [
+              TextField(
+                  controller: oldCtrl,
+                  obscureText: true,
+                  decoration:
+                  const InputDecoration(labelText: 'Current password')),
+              const SizedBox(height: 8),
+              TextField(
+                  controller: newCtrl,
+                  obscureText: true,
+                  decoration:
+                  const InputDecoration(labelText: 'New password')),
+              const SizedBox(height: 8),
+              TextField(
+                  controller: confirmCtrl,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                      labelText: 'Confirm new password'))
+            ]),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(dCtx),
+                  child: const Text('Cancel')),
+              ElevatedButton(
+                  onPressed: () {
+                    if (newCtrl.text != confirmCtrl.text ||
+                        newCtrl.text.isEmpty) {
+                      ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+                          content: Text('Passwords do not match')));
+                      return;
+                    }
+                    Navigator.pop(dCtx);
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                        const SnackBar(content: Text('Password changed')));
+                  },
+                  child: const Text('Update'))
+            ]));
   }
 
   void _logout() async {
@@ -536,28 +777,20 @@ class _AdminHomePageState extends State<AdminHomePage> {
             actions: [
               TextButton(
                   onPressed: () => Navigator.pop(dCtx, false),
-                  child: const Text('Cancel')
-              ),
+                  child: const Text('Cancel')),
               ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    foregroundColor: Colors.white,
-                  ),
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white),
                   onPressed: () => Navigator.pop(dCtx, true),
-                  child: const Text('Log out')
-              )
-            ]
-        )
-    );
+                  child: const Text('Log out'))
+            ]));
 
     if (ok == true && mounted) {
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
             builder: (context) => LoginPage(
-                onToggleTheme: (val) {},
-                isDark: widget.isDark
-            )
-        ),
+                onToggleTheme: (val) {}, isDark: _isDark)),
             (route) => false,
       );
     }
@@ -567,9 +800,6 @@ class _AdminHomePageState extends State<AdminHomePage> {
 // ---------------------------------------------------------------------------
 // AdminProfilePage
 // ---------------------------------------------------------------------------
-List<Color> headerGradientColors(bool isDark) {
-  return isDark ? [const Color(0xFF2D2D2D), const Color(0xFF0B0B0B)] : [const Color(0xFF06B6D4), const Color(0xFF06D6A0)];
-}
 
 class AdminProfilePage extends StatefulWidget {
   final bool isDark;
@@ -605,10 +835,11 @@ class AdminProfilePage extends StatefulWidget {
   State<AdminProfilePage> createState() => _AdminProfilePageState();
 }
 
-class _AdminProfilePageState extends State<AdminProfilePage> with SingleTickerProviderStateMixin {
+class _AdminProfilePageState extends State<AdminProfilePage>
+    with SingleTickerProviderStateMixin {
   late String _name;
   late String _email;
-  late bool _localIsDark;
+  // Remove internal state that gets stale. Use widget.isDark
   late String _profileImage;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -619,7 +850,6 @@ class _AdminProfilePageState extends State<AdminProfilePage> with SingleTickerPr
     super.initState();
     _name = widget.initialName;
     _email = widget.initialEmail;
-    _localIsDark = widget.isDark;
     _profileImage = widget.initialPhotoUrl ?? "https://i.pravatar.cc/150?img=3";
 
     _animationController = AnimationController(
@@ -628,13 +858,10 @@ class _AdminProfilePageState extends State<AdminProfilePage> with SingleTickerPr
     );
 
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
-    );
-
-    _slideAnimation = Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
-    );
-
+        CurvedAnimation(parent: _animationController, curve: Curves.easeOut));
+    _slideAnimation = Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero)
+        .animate(CurvedAnimation(
+        parent: _animationController, curve: Curves.easeOut));
     _animationController.forward();
   }
 
@@ -647,11 +874,10 @@ class _AdminProfilePageState extends State<AdminProfilePage> with SingleTickerPr
   @override
   void didUpdateWidget(covariant AdminProfilePage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.isDark != widget.isDark) {
-      _localIsDark = widget.isDark;
-    }
-    if (oldWidget.initialPhotoUrl != widget.initialPhotoUrl && widget.initialPhotoUrl != null) {
-      _profileImage = widget.initialPhotoUrl!;
+    // If parent updates photo, update local state
+    if (oldWidget.initialPhotoUrl != widget.initialPhotoUrl &&
+        widget.initialPhotoUrl != null) {
+      setState(() => _profileImage = widget.initialPhotoUrl!);
     }
   }
 
@@ -661,15 +887,41 @@ class _AdminProfilePageState extends State<AdminProfilePage> with SingleTickerPr
       context: context,
       builder: (dCtx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(children: [Icon(Icons.edit, color: Theme.of(context).colorScheme.primary), const SizedBox(width: 12), const Text('Edit Name')]),
-        content: TextField(controller: ctrl, decoration: InputDecoration(labelText: 'Full Name', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), prefixIcon: const Icon(Icons.person))),
-        actions: [TextButton(onPressed: () => Navigator.pop(dCtx, false), child: const Text('Cancel')), FilledButton(onPressed: () => Navigator.pop(dCtx, true), child: const Text('Save'))],
+        title: Row(children: [
+          Icon(Icons.edit, color: Theme.of(context).colorScheme.primary),
+          const SizedBox(width: 12),
+          const Text('Edit Name')
+        ]),
+        content: TextField(
+            controller: ctrl,
+            decoration: InputDecoration(
+                labelText: 'Full Name',
+                border:
+                OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                prefixIcon: const Icon(Icons.person))),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(dCtx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(dCtx, true),
+              child: const Text('Save'))
+        ],
       ),
     );
     if (ok == true && ctrl.text.trim().isNotEmpty) {
       setState(() => _name = ctrl.text.trim());
       widget.onUpdateName?.call(_name);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Row(children: [Icon(Icons.check_circle, color: Colors.white), SizedBox(width: 12), Text('Name updated successfully')]), backgroundColor: Colors.green, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Row(children: [
+            Icon(Icons.check_circle, color: Colors.white),
+            SizedBox(width: 12),
+            Text('Name updated successfully')
+          ]),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))));
     }
   }
 
@@ -679,22 +931,50 @@ class _AdminProfilePageState extends State<AdminProfilePage> with SingleTickerPr
       context: context,
       builder: (dCtx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(children: [Icon(Icons.email, color: Theme.of(context).colorScheme.primary), const SizedBox(width: 12), const Text('Edit Email')]),
-        content: TextField(controller: ctrl, decoration: InputDecoration(labelText: 'Email Address', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), prefixIcon: const Icon(Icons.email)), keyboardType: TextInputType.emailAddress),
-        actions: [TextButton(onPressed: () => Navigator.pop(dCtx, false), child: const Text('Cancel')), FilledButton(onPressed: () => Navigator.pop(dCtx, true), child: const Text('Save'))],
+        title: Row(children: [
+          Icon(Icons.email, color: Theme.of(context).colorScheme.primary),
+          const SizedBox(width: 12),
+          const Text('Edit Email')
+        ]),
+        content: TextField(
+            controller: ctrl,
+            decoration: InputDecoration(
+                labelText: 'Email Address',
+                border:
+                OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                prefixIcon: const Icon(Icons.email)),
+            keyboardType: TextInputType.emailAddress),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(dCtx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(dCtx, true),
+              child: const Text('Save'))
+        ],
       ),
     );
     if (ok == true && ctrl.text.trim().isNotEmpty) {
       setState(() => _email = ctrl.text.trim());
       widget.onUpdateEmail?.call(_email);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Row(children: [Icon(Icons.check_circle, color: Colors.white), SizedBox(width: 12), Text('Email updated successfully')]), backgroundColor: Colors.green, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Row(children: [
+            Icon(Icons.check_circle, color: Colors.white),
+            SizedBox(width: 12),
+            Text('Email updated successfully')
+          ]),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))));
     }
   }
 
   ImageProvider _imageProvider(String url) {
     if ((url.startsWith('file://') || File(url).existsSync()) && !kIsWeb) {
       try {
-        final cleaned = url.startsWith('file://') ? url.replaceFirst('file://', '') : url;
+        final cleaned =
+        url.startsWith('file://') ? url.replaceFirst('file://', '') : url;
         return FileImage(File(cleaned));
       } catch (_) {
         return const NetworkImage('https://via.placeholder.com/400');
@@ -704,36 +984,211 @@ class _AdminProfilePageState extends State<AdminProfilePage> with SingleTickerPr
     }
   }
 
-  Widget _buildActionCard({required BuildContext context, required IconData icon, required String title, required String subtitle, required VoidCallback onTap, Color? iconColor}) {
+  Widget _buildActionCard(
+      {required BuildContext context,
+        required IconData icon,
+        required String title,
+        required String subtitle,
+        required VoidCallback onTap,
+        Color? iconColor}) {
     final cs = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
       child: Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: cs.surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: cs.outlineVariant.withOpacity(0.5)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))]),
-        child: Row(children: [Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: (iconColor ?? cs.primary).withOpacity(0.1), borderRadius: BorderRadius.circular(14)), child: Icon(icon, color: iconColor ?? cs.primary, size: 24)), const SizedBox(width: 16), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: cs.onSurface)), const SizedBox(height: 2), Text(subtitle, style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant))])), Icon(Icons.chevron_right, color: cs.onSurfaceVariant)]),
+        decoration: BoxDecoration(
+            color: cs.surface,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: cs.outlineVariant.withOpacity(0.5)),
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4))
+            ]),
+        child: Row(children: [
+          Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                  color: (iconColor ?? cs.primary).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(14)),
+              child:
+              Icon(icon, color: iconColor ?? cs.primary, size: 24)),
+          const SizedBox(width: 16),
+          Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title,
+                        style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: cs.onSurface)),
+                    const SizedBox(height: 2),
+                    Text(subtitle,
+                        style:
+                        TextStyle(fontSize: 12, color: cs.onSurfaceVariant))
+                  ])),
+          Icon(Icons.chevron_right, color: cs.onSurfaceVariant),
+        ]),
       ),
     );
   }
 
   Widget _buildThemeCard(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    // Use widget.isDark which comes from the parent (source of truth)
+    final isDark = widget.isDark;
+
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: cs.surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: cs.outlineVariant.withOpacity(0.5)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))]),
-      child: Row(children: [Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: cs.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(14)), child: Icon(_localIsDark ? Icons.dark_mode : Icons.light_mode, color: cs.primary, size: 24)), const SizedBox(width: 16), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Theme', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: cs.onSurface)), const SizedBox(height: 2), Text(_localIsDark ? 'Dark mode enabled' : 'Light mode enabled', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant))])), Switch.adaptive(value: _localIsDark, onChanged: (value) { setState(() => _localIsDark = value); widget.onToggleTheme?.call(value); })]),
+      decoration: BoxDecoration(
+          color: cs.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: cs.outlineVariant.withOpacity(0.5)),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4))
+          ]),
+      child: Row(children: [
+        Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+                color: cs.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(14)),
+            child: Icon(isDark ? Icons.nightlight_round : Icons.wb_sunny,
+                color: cs.primary, size: 24)),
+        const SizedBox(width: 16),
+        Expanded(
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Theme',
+                      style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: cs.onSurface)),
+                  const SizedBox(height: 2),
+                  Text(
+                      isDark ? 'Dark mode enabled' : 'Light mode enabled',
+                      style:
+                      TextStyle(fontSize: 12, color: cs.onSurfaceVariant))
+                ])),
+        Switch.adaptive(
+            value: isDark,
+            activeColor: const Color(0xFF64B5F6),
+            onChanged: (value) {
+              // Call parent toggle
+              widget.onToggleTheme?.call(value);
+            })
+      ]),
     );
   }
 
   Widget _buildInfoCard(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // UNIFIED GRADIENT: Same as AdminHomePage Header
+    final isDark = widget.isDark;
+    final gradientColors = isDark
+        ? [const Color(0xFF1A1A2E), const Color(0xFF16213E)]
+        : [const Color(0xFF0D6EFD), const Color(0xFF20C997)];
+
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: headerGradientColors(isDark)), borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: (isDark ? headerGradientColors(isDark).first : const Color(0xFF00ACC1)).withOpacity(0.4), blurRadius: 20, offset: const Offset(0, 10))]),
-      child: Column(children: [Row(children: [Stack(children: [Hero(tag: 'profile_image', child: Container(decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 4), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 15, offset: const Offset(0, 5))]), child: CircleAvatar(radius: 45, backgroundImage: _imageProvider(_profileImage))))]), const SizedBox(width: 20), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(_name, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold), maxLines: 2, overflow: TextOverflow.ellipsis), const SizedBox(height: 8), Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: Colors.white.withOpacity(0.25), borderRadius: BorderRadius.circular(20)), child: Row(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.school, color: Colors.white, size: 16), const SizedBox(width: 6), Text(widget.initialDeptSection, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13))]))]))]), const SizedBox(height: 16), Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(16)), child: Row(children: [const Icon(Icons.email, color: Colors.white, size: 20), const SizedBox(width: 12), Expanded(child: Text(_email, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis))]))]),
+      decoration: BoxDecoration(
+          gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: gradientColors),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+                color: (isDark ? gradientColors.first : const Color(0xFF00ACC1))
+                    .withOpacity(0.4),
+                blurRadius: 20,
+                offset: const Offset(0, 10))
+          ]),
+      child: Column(children: [
+        Row(children: [
+          Stack(children: [
+            Hero(
+                tag: 'profile_image', // Shared tag
+                child: Container(
+                    decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 4),
+                        boxShadow: [
+                          BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 15,
+                              offset: const Offset(0, 5))
+                        ]),
+                    child: CircleAvatar(
+                      radius: 45,
+                      backgroundImage: _imageProvider(_profileImage),
+                      backgroundColor: Colors.white.withOpacity(0.2),
+                      child: _profileImage.isEmpty ||
+                          _profileImage == "https://i.pravatar.cc/150?img=3"
+                          ? const Icon(Icons.admin_panel_settings,
+                          size: 45, color: Colors.white)
+                          : null,
+                    )))
+          ]),
+          const SizedBox(width: 20),
+          Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(_name,
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 8),
+                    Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.25),
+                            borderRadius: BorderRadius.circular(20)),
+                        child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.school,
+                                  color: Colors.white, size: 16),
+                              const SizedBox(width: 6),
+                              Text(widget.initialDeptSection,
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13))
+                            ]))
+                  ]))
+        ]),
+        const SizedBox(height: 16),
+        Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(16)),
+            child: Row(children: [
+              const Icon(Icons.email, color: Colors.white, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                  child: Text(_email,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis))
+            ]))
+      ]),
     );
   }
 
@@ -747,9 +1202,51 @@ class _AdminProfilePageState extends State<AdminProfilePage> with SingleTickerPr
           padding: EdgeInsets.zero,
           children: [
             _buildInfoCard(context),
-            Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Text('Account Settings', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface))),
+            Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text('Account Settings',
+                    style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.onSurface))),
             const SizedBox(height: 12),
-            Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Column(children: [_buildActionCard(context: context, icon: Icons.person, title: 'Edit Name', subtitle: 'Update your display name', onTap: _editName), const SizedBox(height: 12), _buildActionCard(context: context, icon: Icons.email, title: 'Edit Email', subtitle: 'Change your email address', onTap: _editEmail), const SizedBox(height: 12), _buildThemeCard(context), if (widget.showAdminActions) ...[const SizedBox(height: 12), _buildActionCard(context: context, icon: Icons.lock, title: 'Change Password', subtitle: 'Update your password', onTap: () => widget.onChangePassword?.call(context)), const SizedBox(height: 12), _buildActionCard(context: context, icon: Icons.logout, title: 'Log Out', subtitle: 'Sign out of your account', onTap: () => widget.onLogout?.call(), iconColor: Theme.of(context).colorScheme.error)]])),
+            Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(children: [
+                  _buildActionCard(
+                      context: context,
+                      icon: Icons.person,
+                      title: 'Edit Name',
+                      subtitle: 'Update your display name',
+                      onTap: _editName),
+                  const SizedBox(height: 12),
+                  _buildActionCard(
+                      context: context,
+                      icon: Icons.email,
+                      title: 'Edit Email',
+                      subtitle: 'Change your email address',
+                      onTap: _editEmail),
+                  const SizedBox(height: 12),
+                  _buildThemeCard(context),
+                  if (widget.showAdminActions) ...[
+                    const SizedBox(height: 12),
+                    _buildActionCard(
+                        context: context,
+                        icon: Icons.lock,
+                        title: 'Change Password',
+                        subtitle: 'Update your password',
+                        onTap: () =>
+                            widget.onChangePassword?.call(context)),
+                    const SizedBox(height: 12),
+                    _buildActionCard(
+                        context: context,
+                        icon: Icons.logout,
+                        title: 'Log Out',
+                        subtitle: 'Sign out of your account',
+                        onTap: () => widget.onLogout?.call(),
+                        iconColor: Theme.of(context).colorScheme.error)
+                  ]
+                ])),
             const SizedBox(height: 24),
           ],
         ),

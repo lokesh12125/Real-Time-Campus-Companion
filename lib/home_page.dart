@@ -54,9 +54,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   bool _isLoadingTimetable = true;
 
   final List<String> eventImages = const [
-    'https://picsum.photos/1200/600?random=1',
-    'https://picsum.photos/1200/600?random=2',
-    'https://picsum.photos/1200/600?random=3',
+    '[https://picsum.photos/1200/600?random=1](https://picsum.photos/1200/600?random=1)',
+    '[https://picsum.photos/1200/600?random=2](https://picsum.photos/1200/600?random=2)',
+    '[https://picsum.photos/1200/600?random=3](https://picsum.photos/1200/600?random=3)',
   ];
 
   // Slot start times (24h format) matches student_timetable_page
@@ -612,7 +612,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         child: const CircleAvatar(
                           radius: 35,
                           backgroundImage: NetworkImage(
-                            "https://i.pravatar.cc/150?img=3",
+                            "[https://i.pravatar.cc/150?img=3](https://i.pravatar.cc/150?img=3)",
                           ),
                         ),
                       ),

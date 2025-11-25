@@ -1,26 +1,7 @@
-// lib/find_teacher_page.dart
 import 'package:flutter/material.dart';
+import 'api_service.dart';
+import 'timetable_model.dart';
 
-/// Model for teacher lookup result
-class TeacherLocationResult {
-  final String teacherName;
-  final String dept;
-  final bool isTeaching; // true => classroom; false => in cabin
-  final String location; // e.g., 'Room 402' or 'Cabin 12'
-  final String status; // short status like "Teaching: X" or "In cabin"
-  final Map<String, List<String>> timetable;
-
-  TeacherLocationResult({
-    required this.teacherName,
-    required this.dept,
-    required this.isTeaching,
-    required this.location,
-    required this.status,
-    required this.timetable,
-  });
-}
-
-/// Page to find a teacher's current location (cabin or classroom) and view their timetable.
 class FindTeacherPage extends StatefulWidget {
   const FindTeacherPage({super.key});
 
@@ -29,309 +10,338 @@ class FindTeacherPage extends StatefulWidget {
 }
 
 class _FindTeacherPageState extends State<FindTeacherPage> {
-  final List<String> departments = <String>[
-    'Select Department',
-    'CSE',
-    'ECE',
-    'ME',
-    'CE',
-    'EE',
-    'Maths',
-    'Physics',
-  ];
+  List<TeacherSearchResult> _results = [];
+  bool _isLoading = false;
+  String? _error;
 
-  final List<String> batches = <String>[
-    'Select Batch',
-    'All', // means any batch / check cabin status too
-    'Sem 1 - CSE',
-    'Sem 3 - CSE',
-    'Sem 5 - ECE',
-    'Sem 2 - ME',
-  ];
-
-  String selectedDept = 'Select Department';
-  String selectedBatch = 'Select Batch';
-  final TextEditingController teacherController = TextEditingController();
-
-  bool _loading = false;
-  TeacherLocationResult? _result;
-
-  // ----- MOCK DATABASE -----
-  // Key rules (for mock): teacherLower|dept|batch
-  final Map<String, TeacherLocationResult> _mockDb = {
-    'dr.smith|cse|sem 3 - cse': TeacherLocationResult(
-      teacherName: 'Dr. Smith',
-      dept: 'CSE',
-      isTeaching: true,
-      location: 'Room 402, Block A',
-      status: 'Teaching: Compiler Design',
-      timetable: {
-        'Mon': ['09:00 - Compiler Design'],
-        'Tue': ['11:00 - Compiler Design'],
-        'Thu': ['02:00 - Research Meeting'],
-      },
-    ),
-    'dr.smith|cse|all': TeacherLocationResult(
-      teacherName: 'Dr. Smith',
-      dept: 'CSE',
-      isTeaching: false,
-      location: 'Cabin 12, Dept. CSE',
-      status: 'In cabin (office hours)',
-      timetable: {
-        'Mon': ['09:00 - Compiler Design'],
-        'Tue': ['11:00 - Compiler Design'],
-        'Thu': ['02:00 - Research Meeting'],
-      },
-    ),
-    'prof.jones|ece|sem 5 - ece': TeacherLocationResult(
-      teacherName: 'Prof. Jones',
-      dept: 'ECE',
-      isTeaching: true,
-      location: 'Electronics Lab 2',
-      status: 'Practical: Analog Lab',
-      timetable: {
-        'Mon': ['10:00 - Analog Lab'],
-        'Wed': ['09:00 - Signal Processing'],
-        'Fri': ['11:00 - Microelectronics'],
-      },
-    ),
-    'prof.lee|maths|all': TeacherLocationResult(
-      teacherName: 'Prof. Lee',
-      dept: 'Maths',
-      isTeaching: false,
-      location: 'Math Dept Cabin 3',
-      status: 'In cabin - available for consultation',
-      timetable: {
-        'Tue': ['09:00 - Calculus'],
-        'Thu': ['11:00 - Linear Algebra'],
-      },
-    ),
-  };
-  // -------------------------
-
-  Future<void> _findTeacher() async {
-    final teacherName = teacherController.text.trim();
-    if (selectedDept == 'Select Department' ||
-        selectedBatch == 'Select Batch' ||
-        teacherName.isEmpty) {
+  // Function to handle manual search (e.g., pressing Enter)
+  void _manualSearch(String query) async {
+    if (query.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select department, batch and enter teacher name')),
+        const SnackBar(content: Text('Please enter a name to search')),
       );
       return;
     }
 
     setState(() {
-      _loading = true;
-      _result = null;
+      _isLoading = true;
+      _error = null;
+      _results = [];
     });
 
-    await Future.delayed(const Duration(milliseconds: 500)); // simulate network
-
-    final baseKey =
-        '${teacherName.toLowerCase()}|${selectedDept.toLowerCase()}|${selectedBatch.toLowerCase()}';
-    final fallbackAllBatchKey = '${teacherName.toLowerCase()}|${selectedDept.toLowerCase()}|all';
-
-    TeacherLocationResult? found = _mockDb[baseKey];
-    if (found == null) found = _mockDb[fallbackAllBatchKey];
-
-    setState(() {
-      _loading = false;
-      _result = found;
-    });
-
-    if (found == null) {
-      showDialog(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: const Text('Not found'),
-          content: const Text('Could not find that teacher for the selected department/batch.'),
-          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
-        ),
-      );
+    try {
+      final teachers = await ApiService.searchTeachers(query);
+      setState(() {
+        _results = teachers;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = "Failed to find teachers. Please try again.";
+        _isLoading = false;
+      });
     }
   }
 
   @override
-  void dispose() {
-    teacherController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Find Teacher (Cabin / Room)'),
+        title: const Text('Find Teacher'),
+        centerTitle: true,
       ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              // Dept + Batch selectors
-              Row(
-                children: [
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      value: selectedDept,
-                      items: departments
-                          .map((d) => DropdownMenuItem<String>(value: d, child: Text(d)))
-                          .toList(),
-                      onChanged: (v) => setState(() => selectedDept = v ?? 'Select Department'),
-                      decoration: const InputDecoration(labelText: 'Department'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      value: selectedBatch,
-                      items: batches
-                          .map((b) => DropdownMenuItem<String>(value: b, child: Text(b)))
-                          .toList(),
-                      onChanged: (v) => setState(() => selectedBatch = v ?? 'Select Batch'),
-                      decoration: const InputDecoration(labelText: 'Batch'),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // Teacher name
-              TextField(
-                controller: teacherController,
-                decoration: const InputDecoration(
-                  labelText: 'Teacher name (e.g., Dr. Smith)',
-                  prefixIcon: Icon(Icons.person_search),
+      body: Column(
+        children: [
+          // Search Bar Area with Autocomplete
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
                 ),
-                onSubmitted: (_) => _findTeacher(),
-              ),
+              ],
+            ),
+            child: Autocomplete<TeacherSearchResult>(
+              // 1. Define how to display the option in the text field
+              displayStringForOption: (TeacherSearchResult option) => option.name,
 
-              const SizedBox(height: 12),
+              // 2. Fetch options from API as user types
+              optionsBuilder: (TextEditingValue textEditingValue) async {
+                if (textEditingValue.text.isEmpty) {
+                  return const Iterable<TeacherSearchResult>.empty();
+                }
+                try {
+                  return await ApiService.searchTeachers(textEditingValue.text);
+                } catch (e) {
+                  return const Iterable<TeacherSearchResult>.empty();
+                }
+              },
 
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      icon: const Icon(Icons.search),
-                      label: _loading ? const Text('Searching...') : const Text('Find'),
-                      onPressed: _loading ? null : _findTeacher,
+              // 3. Handle selection from dropdown
+              onSelected: (TeacherSearchResult selection) {
+                setState(() {
+                  // Show the selected teacher immediately
+                  _results = [selection];
+                  _error = null;
+                });
+              },
+
+              // 4. Build the Input Field
+              fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted) {
+                return TextField(
+                  controller: textEditingController,
+                  focusNode: focusNode,
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: (val) => _manualSearch(val),
+                  decoration: InputDecoration(
+                    hintText: 'Search by teacher name...',
+                    prefixIcon: const Icon(Icons.search),
+                    filled: true,
+                    fillColor: isDark ? Colors.grey.shade900 : Colors.grey.shade100,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
                     ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    // Clear Button
+                    suffixIcon: textEditingController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              textEditingController.clear();
+                              setState(() {
+                                _results = [];
+                                _error = null;
+                              });
+                            },
+                          )
+                        : null,
                   ),
-                ],
-              ),
+                );
+              },
 
-              const SizedBox(height: 20),
-
-              if (_loading) const CircularProgressIndicator(),
-              if (!_loading && _result != null) _buildResultCard(_result!),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildResultCard(TeacherLocationResult res) {
-    final locationLabel = res.isTeaching ? 'Current classroom' : 'Cabin';
-    final statusIcon = res.isTeaching ? Icons.class_ : Icons.meeting_room;
-
-    return Card(
-      margin: const EdgeInsets.only(top: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(res.teacherName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          Row(children: [
-            Icon(statusIcon, size: 18),
-            const SizedBox(width: 8),
-            Expanded(child: Text('$locationLabel: ${res.location}')),
-          ]),
-          const SizedBox(height: 8),
-          Row(children: [
-            const Icon(Icons.info_outline, size: 18),
-            const SizedBox(width: 8),
-            Expanded(child: Text('Status: ${res.status}')),
-          ]),
-          const SizedBox(height: 12),
-          Row(children: [
-            ElevatedButton.icon(
-              icon: const Icon(Icons.calendar_view_week),
-              label: const Text('View Timetable'),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => TeacherTimetablePage(
-                      teacherName: res.teacherName,
-                      dept: res.dept,
-                      timetable: res.timetable,
+              // 5. Build the Dropdown List Options
+              // ✅ FIX: Used Container instead of SizedBox to support 'constraints'
+              optionsViewBuilder: (context, onSelected, options) {
+                return Align(
+                  alignment: Alignment.topLeft,
+                  child: Material(
+                    elevation: 4.0,
+                    borderRadius: BorderRadius.circular(12),
+                    color: isDark ? Colors.grey.shade800 : Colors.white,
+                    child: Container( 
+                      width: MediaQuery.of(context).size.width - 32, // Match width of search box (screen - padding)
+                      constraints: const BoxConstraints(maxHeight: 250), // Limit height
+                      child: ListView.builder(
+                        padding: EdgeInsets.zero,
+                        shrinkWrap: true,
+                        itemCount: options.length,
+                        itemBuilder: (BuildContext context, int index) {
+                          final option = options.elementAt(index);
+                          return ListTile(
+                            leading: CircleAvatar(
+                              backgroundImage: (option.image != null && option.image!.isNotEmpty)
+                                  ? NetworkImage(option.image!)
+                                  : const NetworkImage("https://i.pravatar.cc/150?img=11"),
+                            ),
+                            title: Text(
+                              option.name,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.white : Colors.black,
+                              ),
+                            ),
+                            subtitle: Text(
+                              option.dept,
+                              style: TextStyle(
+                                color: isDark ? Colors.grey[400] : Colors.black54,
+                              ),
+                            ),
+                            onTap: () => onSelected(option),
+                          );
+                        },
+                      ),
                     ),
                   ),
                 );
               },
             ),
-            const SizedBox(width: 12),
-            OutlinedButton.icon(
-              icon: const Icon(Icons.map),
-              label: const Text('Navigate'),
-              onPressed: () {
-                ScaffoldMessenger.of(context)
-                    .showSnackBar(const SnackBar(content: Text('Map navigation not implemented')));
-              },
-            ),
-          ]),
-        ]),
+          ),
+
+          // Results List (The Cards)
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _error != null
+                    ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
+                    : _results.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.person_search_outlined, size: 80, color: Colors.grey.shade400),
+                                const SizedBox(height: 16),
+                                Text("No teachers found", style: TextStyle(color: Colors.grey.shade600, fontSize: 16)),
+                              ],
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.all(16),
+                            itemCount: _results.length,
+                            itemBuilder: (context, index) {
+                              return _buildTeacherCard(_results[index], isDark);
+                            },
+                          ),
+          ),
+        ],
       ),
     );
   }
-}
 
-/// Simple timetable viewer for teachers (replace with richer UI if desired)
-class TeacherTimetablePage extends StatelessWidget {
-  final String teacherName;
-  final String dept;
-  final Map<String, List<String>> timetable;
+  Widget _buildTeacherCard(TeacherSearchResult teacher, bool isDark) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isAvailable = teacher.availability;
 
-  const TeacherTimetablePage({
-    super.key,
-    required this.teacherName,
-    required this.dept,
-    required this.timetable,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final days = <String>['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    return Scaffold(
-      appBar: AppBar(title: Text('$teacherName — Timetable')),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(children: [
-            Text('Dept: $dept', style: const TextStyle(fontSize: 14)),
-            const SizedBox(height: 12),
-            Expanded(
-              child: ListView(
-                children: days.map((d) {
-                  final entries = timetable[d] ?? <String>[];
-                  return Card(
-                    child: ListTile(
-                      title: Text(d),
-                      subtitle: entries.isNotEmpty
-                          ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: entries.map((e) => Text('• $e')).toList(),
-                      )
-                          : const Text('No classes'),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border.all(color: colorScheme.outlineVariant.withOpacity(0.5)),
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                // Profile Image
+                Hero(
+                  tag: teacher.id,
+                  child: Container(
+                    width: 70,
+                    height: 70,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isAvailable ? Colors.green : Colors.red,
+                        width: 3,
+                      ),
+                      image: DecorationImage(
+                        image: (teacher.image != null && teacher.image!.isNotEmpty)
+                            ? NetworkImage(teacher.image!)
+                            : const NetworkImage("https://i.pravatar.cc/150?img=11"),
+                        fit: BoxFit.cover,
+                      ),
                     ),
-                  );
-                }).toList(),
-              ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+
+                // Details
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        teacher.name,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        teacher.dept,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: colorScheme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Availability Badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isAvailable ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isAvailable ? Colors.green : Colors.red,
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              isAvailable ? Icons.check_circle : Icons.cancel,
+                              size: 14,
+                              color: isAvailable ? Colors.green : Colors.red,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              isAvailable ? "In Cabin / Available" : "Not Available",
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: isAvailable ? Colors.green : Colors.red,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ]),
-        ),
+          ),
+
+          // Cabin Info Footer
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHighest.withOpacity(0.5),
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.room, size: 18, color: colorScheme.onSurfaceVariant),
+                const SizedBox(width: 8),
+                Text(
+                  "Cabin: ",
+                  style: TextStyle(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  teacher.cabinRoom,
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
